@@ -1,0 +1,4 @@
+# Plugins/
+# 第三方插件 DLL 落点（对应 Rainmeter Plugins/）。
+# 插件 DLL 必须导出 Initialize / Reload / Update / Finalize。
+# 由 MeasurePlugin (Library/MeasurePlugin.cpp) 经 LoadLibrary 加载。

@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  RainDeskPlus - VS-native staging stub project.
+  NOTE: This is a minimal hand-written stub so Visual Studio can open the
+  solution directly. It builds the core static library only (Library + Dock +
+  UI skeletons) WITHOUT Duilib/Direct2D wiring. For the full, maintained build
+  graph use CMake (see docs/BUILD.md): `cmake --preset vs2022-x64` then open the
+  generated RainDeskPlus.sln under build/vs2022/.
+  Skeleton stage: sources may not yet compile (toolchain / Rainmeter extraction
+  pending). Treat this .vcxproj as a convenience, not the source of truth.
+-->
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{A1B2C3D4-E5F6-4A5B-9C0D-1234567890AB}</ProjectGuid>
+    <RootNamespace>RainDeskPlus</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <ConformanceMode>true</ConformanceMode>
+      <SDLCheck>true</SDLCheck>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <AdditionalIncludeDirectories>$(SolutionDir)Library;$(SolutionDir)Dock;$(SolutionDir)UI;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_UNICODE;UNICODE;NOMINMAX;WIN32_LEAN_AND_MEAN;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <ConformanceMode>true</ConformanceMode>
+      <SDLCheck>true</SDLCheck>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <AdditionalIncludeDirectories>$(SolutionDir)Library;$(SolutionDir)Dock;$(SolutionDir)UI;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_UNICODE;UNICODE;NOMINMAX;WIN32_LEAN_AND_MEAN;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Lib>
+      <LinkTimeCodeGeneration>true</LinkTimeCodeGeneration>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="Library\Rainmeter.h" />
+    <ClInclude Include="Library\Measure.h" />
+    <ClInclude Include="Library\MeasureCPU.h" />
+    <ClInclude Include="Library\MeasureMemory.h" />
+    <ClInclude Include="Library\MeasureNet.h" />
+    <ClInclude Include="Library\MeasureTime.h" />
+    <ClInclude Include="Library\MeasurePlugin.h" />
+    <ClInclude Include="Library\Meter.h" />
+    <ClInclude Include="Library\MeterString.h" />
+    <ClInclude Include="Library\MeterImage.h" />
+    <ClInclude Include="Library\MeterBar.h" />
+    <ClInclude Include="Library\MeterLine.h" />
+    <ClInclude Include="Library\Skin.h" />
+    <ClInclude Include="Library\ConfigParser.h" />
+    <ClInclude Include="Library\CommandHandler.h" />
+    <ClInclude Include="Dock\DockBar.h" />
+    <ClInclude Include="Dock\DockItem.h" />
+    <ClInclude Include="Dock\DockMagnify.h" />
+    <ClInclude Include="Dock\DockWindow.h" />
+    <ClInclude Include="UI\DuilibWindowBase.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Library\Rainmeter.cpp" />
+    <ClCompile Include="Library\Measure.cpp" />
+    <ClCompile Include="Library\MeasureCPU.cpp" />
+    <ClCompile Include="Library\MeasureMemory.cpp" />
+    <ClCompile Include="Library\MeasureNet.cpp" />
+    <ClCompile Include="Library\MeasureTime.cpp" />
+    <ClCompile Include="Library\MeasurePlugin.cpp" />
+    <ClCompile Include="Library\Meter.cpp" />
+    <ClCompile Include="Library\MeterString.cpp" />
+    <ClCompile Include="Library\MeterImage.cpp" />
+    <ClCompile Include="Library\MeterBar.cpp" />
+    <ClCompile Include="Library\MeterLine.cpp" />
+    <ClCompile Include="Library\Skin.cpp" />
+    <ClCompile Include="Library\ConfigParser.cpp" />
+    <ClCompile Include="Library\CommandHandler.cpp" />
+    <ClCompile Include="Dock\DockBar.cpp" />
+    <ClCompile Include="Dock\DockItem.cpp" />
+    <ClCompile Include="Dock\DockMagnify.cpp" />
+    <ClCompile Include="Dock\DockWindow.cpp" />
+    <ClCompile Include="UI\DuilibWindowBase.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets" />
+</Project>

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Library">
+      <UniqueIdentifier>{11111111-1111-1111-1111-111111111111}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Dock">
+      <UniqueIdentifier>{22222222-2222-2222-2222-222222222222}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="UI">
+      <UniqueIdentifier>{33333333-3333-3333-3333-333333333333}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Library\Rainmeter.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\Measure.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\MeasureCPU.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\MeasureMemory.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\MeasureNet.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\MeasureTime.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\MeasurePlugin.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\Meter.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\MeterString.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\MeterImage.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\MeterBar.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\MeterLine.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\Skin.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\ConfigParser.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\CommandHandler.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Dock\DockBar.h"><Filter>Dock</Filter></ClInclude>
+    <ClInclude Include="Dock\DockItem.h"><Filter>Dock</Filter></ClInclude>
+    <ClInclude Include="Dock\DockMagnify.h"><Filter>Dock</Filter></ClInclude>
+    <ClInclude Include="Dock\DockWindow.h"><Filter>Dock</Filter></ClInclude>
+    <ClInclude Include="UI\DuilibWindowBase.h"><Filter>UI</Filter></ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Library\Rainmeter.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\Measure.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\MeasureCPU.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\MeasureMemory.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\MeasureNet.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\MeasureTime.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\MeasurePlugin.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\Meter.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\MeterString.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\MeterImage.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\MeterBar.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\MeterLine.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\Skin.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\ConfigParser.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\CommandHandler.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Dock\DockBar.cpp"><Filter>Dock</Filter></ClCompile>
+    <ClCompile Include="Dock\DockItem.cpp"><Filter>Dock</Filter></ClCompile>
+    <ClCompile Include="Dock\DockMagnify.cpp"><Filter>Dock</Filter></ClCompile>
+    <ClCompile Include="Dock\DockWindow.cpp"><Filter>Dock</Filter></ClCompile>
+    <ClCompile Include="UI\DuilibWindowBase.cpp"><Filter>UI</Filter></ClCompile>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,3 @@
+# Tests/
+# 单元/集成测试落点。CMake option RAINDOCK_BUILD_TESTS=ON 启用。
+# 接入 GoogleTest 后，在根 CMakeLists.txt 取消 add_subdirectory(Tests) 注释。
