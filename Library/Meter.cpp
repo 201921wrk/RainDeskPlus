@@ -4,8 +4,8 @@
  * Copyright (C) 2014-2025 Rainmeter Project
  * Copyright (C) 2026 RainDeskPlus Project
  *
- * 对应 Rainmeter: Library/Meter.cpp（基类骨架）。
- * TODO(Phase1): 提取 Rainmeter 实现（位置/尺寸/变换/绑定的 Measure 缓存）。
+ * 对应 Rainmeter: Library/Meter.cpp（基类）。
+ * M3：公共定位选项 X/Y/Hidden；W/H 由子类决定（如 MeterString 用文本 metrics）。
  */
 #include "Meter.h"
 
@@ -17,8 +17,9 @@ namespace raindock {
 void Meter::Initialize(ConfigParser& parser, Measure* measure)
 {
     m_Measure = measure;
-    // TODO(Phase1): 读取 [MeterXxx] X/Y/W/H/SolidColor/Hidden/AntiAlias。
-    (void)parser;
+    m_X = parser.ReadInt(m_Name, L"X", 0);
+    m_Y = parser.ReadInt(m_Name, L"Y", 0);
+    m_Hidden = parser.ReadBool(m_Name, L"Hidden", false);
 }
 
 void Meter::Update()

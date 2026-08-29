@@ -19,6 +19,8 @@
 #include "ConfigParser.h"
 
 #include <algorithm>
+#include <sstream>
+#include <iomanip>
 
 namespace raindock {
 
@@ -84,6 +86,7 @@ void Measure::Update(bool rereadOptions)
         return;  // 跳帧：保持上一次 m_Value
     }
     m_UpdateCounter = 0;
+    m_StringValue.clear();  // 清空字符串缓存，GetString() 将按需重新格式化
     UpdateValue();  // 子类采样
 }
 
@@ -125,6 +128,13 @@ const wchar_t* Measure::CheckSubstitute(const wchar_t* src)
 
 const wchar_t* Measure::GetString()
 {
+    // 若子类未设字符串值（纯数值 Measure），回退为数值格式化字符串。
+    // 对齐 Rainmeter 语义：MeterString 的 %1 总是能拿到一个有意义的字符串。
+    if (m_StringValue.empty()) {
+        std::wostringstream oss;
+        oss << std::fixed << std::setprecision(1) << GetValue();
+        m_StringValue = oss.str();
+    }
     return CheckSubstitute(m_StringValue.c_str());
 }
 

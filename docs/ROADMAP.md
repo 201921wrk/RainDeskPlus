@@ -25,7 +25,9 @@
   - `Meter*/Skin/CommandHandler/Rainmeter` 骨架保留，M2→M5 陆续升真
 - [x] **M1 里程碑（2026-08-28）**：vs2026-x64 Debug **clean rebuild 0 error / 0 warning / 4 目标全产出**（RainDeskPlusCore.lib + RainDeskPlusDock.lib + RainDeskPlusUI.lib + RainDeskPlus.exe）
 - [x] **M2 里程碑（2026-08-28）**：`MeasureNet` 真采样（GetIfTable2 64 位计数器 / Best·Total·Index / 速率·累计）+ `MeasurePlugin` DLL 加载骨架 + **Smoke 测试 11/0 全过**（Time/CPU/Memory/Net 全链路，Net 累计值与系统计数器一致）；修 2 个真 bug（Memory UsedPercent 缩放语义 / Measure.h 默认 clamp 误伤无界 Measure）。详见 [MODULE_EXTRACTION.md](MODULE_EXTRACTION.md) §7。
-- [ ] D8-9：M3-M5 逐步编译通过（M3：D2D MeterString 渲染；M4：Skin 加载；M5：CRainmeter+Bang）
+- [x] **M3 里程碑（2026-08-29）**：`MeterString` 经 Direct2D/DirectWrite 真渲染出文本（`Canvas` 共享工厂 + 离屏 WIC 渲染目标；Text=%1 绑定 Measure；AutoSize metrics；Smoke **17/0 全过**，渲染像素 1222 命中 + PNG 落盘核验）。详见 [MODULE_EXTRACTION.md](MODULE_EXTRACTION.md) §7 M3。
+- [x] **M4 里程碑（2026-08-29）**：`Skin` 加载最简皮肤并**真实显示**（WS_POPUP 挂件窗口 + D2D HwndRenderTarget + WM_TIMER 驱动；INI→Measure/Meter 工厂构建绑定；Smoke **22/0 全过**，窗口可见 + 5 帧渲染）。详见 [MODULE_EXTRACTION.md](MODULE_EXTRACTION.md) §7 M4。
+- [ ] D8-9：M5 编译通过（CRainmeter+Bang）
 - [ ] D10：【代码审查 Agent】审查提取代码
 
 ## Phase 1 末 / Phase 2 — Dock 栏（Week 3）

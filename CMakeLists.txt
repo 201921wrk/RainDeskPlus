@@ -16,7 +16,8 @@ option(RAINDOCK_BUILD_TESTS   "Build unit tests (requires GoogleTest)"          
 option(RAINDOCK_BUILD_PLUGINS "Build plugin DLLs"                                       OFF)
 
 # ---------- 编译标准与特性 ----------
-set(CMAKE_CXX_STANDARD 17)
+# C++20：上游 Rainmeter 用 std::numbers / string_view::starts_with（Common/MathParser、ParseUtil）
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -38,8 +39,17 @@ include_directories(
 file(GLOB RAINDOCK_CORE_SOURCES  CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/Library/*.cpp)
 file(GLOB RAINDOCK_CORE_HEADERS  CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/Library/*.h)
 
-add_library(RainDeskPlusCore STATIC ${RAINDOCK_CORE_SOURCES} ${RAINDOCK_CORE_HEADERS})
-target_include_directories(RainDeskPlusCore PUBLIC ${CMAKE_SOURCE_DIR}/Library)
+# Common 基础设施（Rainmeter 上游 Common/ 直拷批：StringUtil/MathParser/Timer/
+# FileUtil/PathUtil/ParseUtil/StringParser/RawString，提取路线见 MODULE_EXTRACTION.md §4）
+file(GLOB RAINDOCK_COMMON_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/Common/*.cpp)
+file(GLOB RAINDOCK_COMMON_HEADERS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/Common/*.h)
+
+add_library(RainDeskPlusCore STATIC
+    ${RAINDOCK_CORE_SOURCES} ${RAINDOCK_CORE_HEADERS}
+    ${RAINDOCK_COMMON_SOURCES} ${RAINDOCK_COMMON_HEADERS})
+target_include_directories(RainDeskPlusCore PUBLIC
+    ${CMAKE_SOURCE_DIR}/Library
+    ${CMAKE_SOURCE_DIR}/Common)
 
 # Rainmeter 派生模块在 Windows 上依赖系统 API：
 if(WIN32)
@@ -53,6 +63,7 @@ if(WIN32)
         d2d1 dwrite dwmapi  # Direct2D / DirectWrite / DWM（注：SDK 只有 dwrite.lib，无 dwrite_3.lib）
         windowscodecs # 图像解码
         gdiplus gdi32 user32 ole32 oleaut32 uxtheme
+        imagehlp      # Common/FileUtil（PE 校验）
     )
 endif()
 
@@ -107,6 +118,18 @@ if(RAINDOCK_BUILD_TESTS)
     # 工具链就位后：include(FetchContent) 引入 GoogleTest
     # add_subdirectory(Tests)
 endif()
+
+# M3.3 离屏渲染 Smoke 测试（不依赖 GoogleTest，独立可执行）
+add_executable(RainDeskPlusRenderTest Tests/test_meter_render.cpp)
+target_link_libraries(RainDeskPlusRenderTest PRIVATE RainDeskPlusCore)
+
+# M4 Skin 加载 Smoke 测试
+add_executable(RainDeskPlusSkinTest Tests/test_skin_load.cpp)
+target_link_libraries(RainDeskPlusSkinTest PRIVATE RainDeskPlusCore)
+
+# M5 Bang 命令 Smoke 测试
+add_executable(RainDeskPlusBangTest Tests/test_bang_commands.cpp)
+target_link_libraries(RainDeskPlusBangTest PRIVATE RainDeskPlusCore)
 
 message(STATUS "RainDeskPlus ${PROJECT_VERSION} configured")
 message(STATUS "  RAINDOCK_USE_DUILIB  = ${RAINDOCK_USE_DUILIB}")

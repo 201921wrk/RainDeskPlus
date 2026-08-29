@@ -1,0 +1,190 @@
+// Copyright (c) Rainmeter Team. Source code licensed under GNU GPL v2 (see LICENSE file).
+
+#include "StdAfx.h"
+#include "StringUtil.h"
+
+#include <algorithm>
+#include <cwctype>
+
+namespace {
+
+// Is the character a end of sentence punctuation character?
+// English only?
+bool IsEOSPunct(wchar_t ch)
+{
+	return ch == '?' || ch == '!' || ch == '.';
+}
+
+}
+
+namespace StringUtil {
+
+std::string Narrow(const WCHAR* str, int strLen, int cp)
+{
+	std::string narrowStr;
+
+	if (str && *str)
+	{
+		if (strLen == -1)
+		{
+			strLen = (int)wcslen(str);
+		}
+
+		int bufLen = WideCharToMultiByte(cp, 0, str, strLen, nullptr, 0, nullptr, nullptr);
+		if (bufLen > 0)
+		{
+			narrowStr.resize(bufLen);
+			WideCharToMultiByte(cp, 0, str, strLen, &narrowStr[0], bufLen, nullptr, nullptr);
+		}
+	}
+	return narrowStr;
+}
+
+std::wstring Widen(const char* str, int strLen, int cp)
+{
+	std::wstring wideStr;
+
+	if (str && *str)
+	{
+		if (strLen == -1)
+		{
+			strLen = (int)strlen(str);
+		}
+
+		int bufLen = MultiByteToWideChar(cp, 0, str, strLen, nullptr, 0);
+		if (bufLen > 0)
+		{
+			wideStr.resize(bufLen);
+			MultiByteToWideChar(cp, 0, str, strLen, &wideStr[0], bufLen);
+		}
+	}
+	return wideStr;
+}
+
+std::wstring_view StripLeadingAndTrailingQuotes(std::wstring_view str, bool single)
+{
+	if (str.size() > 1)
+	{
+		WCHAR first = str.front();
+		WCHAR last = str.back();
+		if ((first == L'"' && last == L'"') ||				// "some string"
+			(single && first == L'\'' && last == L'\''))	// 'some string'
+		{
+			str.remove_prefix(1);
+			str.remove_suffix(1);
+		}
+	}
+	return str;
+}
+
+bool ToUpperCase(std::wstring_view str, WCHAR* dstBuffer, size_t dstCount)
+{
+	if (dstCount <= str.length()) return false;
+	for (size_t i = 0; i < str.length(); ++i)
+	{
+		WCHAR ch = str[i];
+		if (ch >= L'a' && ch <= L'z') ch = (WCHAR)(ch - 0x20);
+		dstBuffer[i] = ch;
+	}
+	dstBuffer[str.length()] = L'\0';
+	return true;
+}
+
+void ToLowerCase(WCHAR* str, size_t count)
+{
+	LCMapString(LOCALE_USER_DEFAULT, LCMAP_LOWERCASE, str, (int)count, str, (int)count);
+}
+
+void ToUpperCase(WCHAR* str, size_t count)
+{
+	LCMapString(LOCALE_USER_DEFAULT, LCMAP_UPPERCASE, str, (int)count, str, (int)count);
+}
+
+void ToProperCase(WCHAR* str, size_t count)
+{
+	LCMapString(LOCALE_USER_DEFAULT, LCMAP_TITLECASE, str, (int)count, str, (int)count);
+}
+
+void ToSentenceCase(WCHAR* str, size_t count)
+{
+	if (count == 0) return;
+
+	ToLowerCase(str, count);
+	bool isCapped = false;
+
+	for (size_t i = 0; i < count; ++i)
+	{
+		if (IsEOSPunct(str[i])) isCapped = false;
+
+		if (!isCapped && iswalpha(str[i]) != 0)
+		{
+			LCMapString(LOCALE_USER_DEFAULT, LCMAP_UPPERCASE, &str[i], 1, &str[i], 1);
+			isCapped = true;
+		}
+	}
+}
+
+void EscapeRegExp(std::wstring& str)
+{
+	size_t start = 0;
+	while ((start = str.find_first_of(L"\\^$|()[{.+*?", start)) != std::wstring::npos)
+	{
+		str.insert(start, L"\\");
+		start += 2;
+	}
+}
+
+void EncodeUrl(std::wstring& str, bool doReserved)
+{
+	static const std::string unreserved = "0123456789-.ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcedefghijklmnopqrstuvwxyz~";
+	std::string utf8 = NarrowUTF8(str);
+	for (size_t pos = 0; pos < utf8.size(); ++pos)
+	{
+		UCHAR ch = utf8[pos];
+		if ((ch <= 0x20 || ch >= 0x7F) ||                              // control characters and non-ascii (includes space)
+			(doReserved && unreserved.find(ch) == std::string::npos))  // any character other than unreserved characters
+		{
+			char buffer[3];
+			_snprintf_s(buffer, _countof(buffer), "%.2X", ch);
+			utf8[pos] = L'%';
+			utf8.insert(pos + 1, buffer);
+			pos += 2;
+		}
+	}
+	str = WidenUTF8(utf8);
+}
+
+std::wstring TruncateWithEllipsis(std::wstring_view str, size_t maxLength)
+{
+	if (str.length() <= maxLength)
+	{
+		return std::wstring(str);
+	}
+
+	if (!maxLength) return {};
+
+	std::wstring truncated;
+	truncated.reserve(maxLength);
+	truncated.assign(str.substr(0, maxLength - 1));
+	truncated += L"\u2026";
+	return truncated;
+}
+
+struct IsEqualCaseInsensitive
+{
+	IsEqualCaseInsensitive() {}
+	bool operator()(wchar_t ch1, wchar_t ch2) { return std::toupper(ch1) == std::toupper(ch2); }
+};
+
+std::size_t CaseInsensitiveFind(const std::wstring& str1, const std::wstring& str2)
+{
+	const auto iter = std::search(str1.begin(), str1.end(), str2.begin(), str2.end(), IsEqualCaseInsensitive());
+	if (iter != str1.end())
+	{
+		return (iter - str1.begin());
+	}
+
+	return static_cast<std::size_t>(-1); // not found (upstream patch: /W4 C4245)
+}
+
+}  // namespace StringUtil
