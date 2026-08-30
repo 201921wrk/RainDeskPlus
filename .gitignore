@@ -53,6 +53,8 @@ external/
 vendor/
 # Rainmeter 上游源码派生提取后入仓，独立克隆不入仓：
 rainmeter-upstream/
+# 上游源码 staging 目录（分批提取源），入仓内容由批次提交：
+upstream-fills/
 
 # ============ Duilib ============
 duilib/
