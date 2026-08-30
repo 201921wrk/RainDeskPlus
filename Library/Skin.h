@@ -24,6 +24,11 @@
 struct ID2D1RenderTarget;
 struct ID2D1HwndRenderTarget;
 
+// Batch-2 forward decl: upstream Mouse class lives at global scope.
+class Mouse;
+// MathParser is declared in Common/MathParser.h at global scope.
+class MathParser;
+
 namespace raindock {
 
 class Measure;
@@ -58,6 +63,32 @@ public:
     const std::vector<std::unique_ptr<Measure>>& GetMeasures() const { return m_Measures; }
     const std::vector<std::unique_ptr<Meter>>&   GetMeters()  const { return m_Meters; }
 
+    // ===== Batch-2 upstream compatibility =====
+    // Default UpdateDivider from [Rainmeter] section.  Upstream
+    // Section::ReadOptions falls back to this per-skin default.  For M4/M5
+    // skeleton we keep 1 (update every tick); read from INI when
+    // ConfigParser supports [Rainmeter] fully in Batch-3.
+    int  GetDefaultUpdateDivider() const { return m_DefaultUpdateDivider; }
+    void SetDefaultUpdateDivider(int v)  { m_DefaultUpdateDivider = v > 0 ? v : 1; }
+
+    // Mouse subsystem bookkeeping.
+    void SetHasMouseScrollAction()       { m_HasMouseScrollAction = true; }
+    bool HasMouseScrollAction() const    { return m_HasMouseScrollAction; }
+    // Returns a per-skin ::Mouse instance, created lazily on first call
+    // (so headers that include Skin.h don't need the full Mouse.h type).
+    ::Mouse& GetMouse();
+
+    // Direct handles used by upstream parsers.
+    ConfigParser& GetParser()            { return *m_Parser; }
+    MathParser&   GetMathParser()        { return *m_MathParser; }
+
+    // @Resources directory (absolute path ending with '\').  Upstream Mouse
+    // uses this when loading custom .cur/.ani cursors.  M4 skeleton uses
+    // Skins\<skin-name>\@Resources\ (may not exist — callers must tolerate
+    // empty/missing path).
+    std::wstring GetResourcesPath() const { return m_ResourcesPath; }
+    void SetResourcesPath(std::wstring p) { m_ResourcesPath = std::move(p); }
+
 private:
     static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
     bool CreateWindowAndTarget(int nCmdShow);
@@ -73,6 +104,16 @@ private:
     HINSTANCE               m_hInstance = nullptr;
     uint32_t                m_UpdateInterval = 1000;
     uint32_t                m_Frames = 0;
+
+    // ===== Batch-2 upstream compatibility members =====
+    int                     m_DefaultUpdateDivider = 1;
+    bool                    m_HasMouseScrollAction = false;
+    std::wstring            m_ResourcesPath;       // may be empty
+    // MathParser is a global-class object (no internal heap, default-ctor
+    // is cheap).  Upstream IfActions uses it for IfCondition formula eval.
+    MathParser*             m_MathParser = nullptr;   // heap-allocated to keep sizeof stable & avoid full MathParser.h in header.
+    // Lazily-allocated global-scope Mouse instance (Batch-2).
+    ::Mouse*                m_MousePtr = nullptr;
 };
 
 }  // namespace raindock

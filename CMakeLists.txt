@@ -7,7 +7,7 @@ cmake_minimum_required(VERSION 3.20)
 project(RainDeskPlus
     VERSION 0.1.0
     DESCRIPTION "Desktop beautification platform: widgets + dock + skins"
-    LANGUAGES CXX)
+    LANGUAGES C CXX)
 
 # ---------- 全局选项 ----------
 option(RAINDOCK_USE_DUILIB    "Enable Duilib UI integration (requires vendored Duilib)" OFF)
@@ -29,9 +29,12 @@ endif()
 # ---------- 头文件包含 ----------
 include_directories(
     ${CMAKE_SOURCE_DIR}/Library
+    ${CMAKE_SOURCE_DIR}/Common
+    ${CMAKE_SOURCE_DIR}/ThirdParty
     ${CMAKE_SOURCE_DIR}/Dock
     ${CMAKE_SOURCE_DIR}/UI
     ${CMAKE_SOURCE_DIR}/App
+    ${CMAKE_SOURCE_DIR}         # 允许 `#include "../ThirdParty/..."` 相对路径从 Library/ 解析
 )
 
 # ---------- 核心引擎静态库（Rainmeter 派生） ----------
@@ -44,12 +47,40 @@ file(GLOB RAINDOCK_CORE_HEADERS  CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/Library/*
 file(GLOB RAINDOCK_COMMON_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/Common/*.cpp)
 file(GLOB RAINDOCK_COMMON_HEADERS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/Common/*.h)
 
+# ---------- Batch-2: PCRE16 正则引擎（IfActions 的 IfMatch 依赖） ----------
+# 上游 Library/Pcre.h 封装 pcre16_compile/pcre16_exec；直接把所有 pcre*.c
+# 加进 RainDeskPlusCore 静态库（避免额外 SHARED 库）。排除 *_printint.c 调试
+# 辅助文件，它引用 main() 会造成链接歧义。
+file(GLOB RAINDOCK_PCRE_SOURCES CONFIGURE_DEPENDS
+    ${CMAKE_SOURCE_DIR}/ThirdParty/pcre/pcre*.c
+    ${CMAKE_SOURCE_DIR}/ThirdParty/pcre/pcre16_*.c)
+if(RAINDOCK_PCRE_SOURCES)
+    list(FILTER RAINDOCK_PCRE_SOURCES EXCLUDE REGEX "/pcre(_|16_)printint\\.c$")
+    # MSVC：PCRE 在 C 模式下会报 /W4 级别告警（unused param / conditional
+    # expression is constant 等）。逐文件降级为 /W0 避免污染 Batch-2 的 0-warning
+    # 目标；同时在 C 编译时定义 PCRE 宏要求的 SUPPORT_UTF16。
+    if(MSVC)
+        set_source_files_properties(${RAINDOCK_PCRE_SOURCES} PROPERTIES
+            COMPILE_FLAGS "/W0 /DSUPPORT_UTF16 /DPCRE_STATIC=1 /DHAVE_CONFIG_H=1")
+    else()
+        set_source_files_properties(${RAINDOCK_PCRE_SOURCES} PROPERTIES
+            COMPILE_DEFINITIONS "SUPPORT_UTF16;PCRE_STATIC=1;HAVE_CONFIG_H=1")
+    endif()
+endif()
+
 add_library(RainDeskPlusCore STATIC
     ${RAINDOCK_CORE_SOURCES} ${RAINDOCK_CORE_HEADERS}
-    ${RAINDOCK_COMMON_SOURCES} ${RAINDOCK_COMMON_HEADERS})
+    ${RAINDOCK_COMMON_SOURCES} ${RAINDOCK_COMMON_HEADERS}
+    ${RAINDOCK_PCRE_SOURCES})
 target_include_directories(RainDeskPlusCore PUBLIC
     ${CMAKE_SOURCE_DIR}/Library
-    ${CMAKE_SOURCE_DIR}/Common)
+    ${CMAKE_SOURCE_DIR}/Common
+    ${CMAKE_SOURCE_DIR}/ThirdParty
+    ${CMAKE_SOURCE_DIR})
+target_compile_definitions(RainDeskPlusCore PUBLIC
+    PCRE_STATIC=1              # Pcre.h 不走 dllimport/dllexport
+    HAVE_CONFIG_H=1            # pcre_internal.h 引用 ThirdParty/pcre/config.h
+    SUPPORT_UTF16)             # Pcre 封装用 UTF-16 API
 
 # Rainmeter 派生模块在 Windows 上依赖系统 API：
 if(WIN32)

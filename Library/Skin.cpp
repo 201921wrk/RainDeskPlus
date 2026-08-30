@@ -27,6 +27,12 @@
 #include "MeasureNet.h"
 #include "MeterString.h"
 
+// Batch-2 adapters: need full types of MathParser (stack allocator & Parse)
+// and ::Mouse (constructor signature Mouse(Skin*, Meter*)).  Included here
+// rather than in Skin.h to keep header include-graph small.
+#include "../Common/MathParser.h"
+#include "Mouse.h"
+
 namespace raindock {
 
 namespace {
@@ -54,6 +60,8 @@ std::unique_ptr<Meter> CreateMeter(const std::wstring& type)
 Skin::Skin()
     : m_Parser(std::make_unique<ConfigParser>())
 {
+    // Batch-2: MathParser is heap-allocated (see comment in Skin.h).
+    m_MathParser = new MathParser();
 }
 
 Skin::~Skin()
@@ -62,6 +70,30 @@ Skin::~Skin()
     m_Measures.clear();
     if (m_RT)     { m_RT->Release();     m_RT = nullptr; }
     if (m_Window) { DestroyWindow(m_Window); m_Window = nullptr; }
+    // Batch-2 cleanup: destroy ::Mouse instance before MathParser.
+    // Note: can't call delete directly on incomplete type, but since we
+    // include Mouse.h above, the full dtor is visible here.
+    delete m_MousePtr;   m_MousePtr = nullptr;
+    delete m_MathParser; m_MathParser = nullptr;
+}
+
+// ===========================================================================
+// Batch-2 upstream adapter: lazy Mouse instance + per-skin MathParser
+// ===========================================================================
+::Mouse& Skin::GetMouse()
+{
+    if (!m_MousePtr) {
+        // Cast `this` (raindock::Skin*) to the global-scope `Skin*` expected
+        // by the upstream ::Mouse(Skin*, Meter* = nullptr) ctor.  The two
+        // types are logically the same object (we use the using-decl in
+        // Mouse.h), so the reinterpret_cast is both well-defined and points
+        // to the same address.  It's only needed because C++ treats
+        // `namespace raindock { class Skin; }` and a hypothetical global
+        // `class Skin;` as distinct types even when a `using` decl aliases.
+        auto* self = reinterpret_cast<Skin*>(this);
+        m_MousePtr = new ::Mouse(self, nullptr);
+    }
+    return *m_MousePtr;
 }
 
 bool Skin::Load(const std::wstring& iniPath)

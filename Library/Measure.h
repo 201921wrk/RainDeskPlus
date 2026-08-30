@@ -59,6 +59,12 @@ public:
     // 当前字符串值（用于 [MeasureName] 段变量 & MeterString）。会应用 Substitute。
     virtual const wchar_t* GetString();
 
+    // ===== Batch-2 upstream compatibility =====
+    // Upstream IfActions::DoIfActions() calls `measure.GetStringValue()`.
+    // Alias kept because local skeleton provides GetString() / upstream
+    // provides GetStringValue() — point both at same (non-const) string out.
+    const wchar_t* GetStringValue() { return GetString(); }
+
     // 释放资源。默认 no-op（子类 override）。
     virtual void Finalize();
 

@@ -10,7 +10,10 @@
 #include "Rainmeter.h"
 
 #include "Skin.h"
+#include "Measure.h"
 #include "CommandHandler.h"
+// Batch-2: global Section base type (used by ExecuteActionCommand(ctx)).
+#include "Section.h"
 
 namespace raindock {
 
@@ -72,6 +75,30 @@ void CRainmeter::DeactivateSkin(Skin* skin)
 void CRainmeter::ExecuteCommand(const std::wstring& command, Skin* skin)
 {
     if (m_CommandHandler) m_CommandHandler->Execute(command, skin);
+}
+
+// ===========================================================================
+// Batch-2 upstream adapter: ExecuteActionCommand overloads
+// ===========================================================================
+// Global ::Section context — used by Section::DoUpdateAction().  At this
+// stage local raindock::Skin is not derived from nor convertible to global
+// ::Skin (Section::GetSkin return type).  We therefore pass nullptr skin
+// context to ExecuteCommand() — sufficient for Batch-2 compile assertion;
+// runtime context-sensitivity (e.g. bang targets a given skin/window) will
+// be restored when Measure/Meter derive from ::Section in Batch-3/4.
+void CRainmeter::ExecuteActionCommand(const WCHAR* command, ::Section* /*ctx*/)
+{
+    if (!command || !*command) return;
+    ExecuteCommand(std::wstring(command), nullptr);
+}
+
+// Local raindock::Measure context — used by IfActions::DoIfActions().  Here
+// we can safely recover the skin pointer from the measure.
+void CRainmeter::ExecuteActionCommand(const WCHAR* command, Measure* ctx)
+{
+    if (!command || !*command) return;
+    Skin* skin = ctx ? ctx->GetSkin() : nullptr;
+    ExecuteCommand(std::wstring(command), skin);
 }
 
 }  // namespace raindock

@@ -432,4 +432,62 @@ bool ConfigParser::IsSectionExists(const std::wstring& section) const
     return m_Sections.find(section) != m_Sections.end();
 }
 
+// ===========================================================================
+// Batch-2 upstream adapter: 5-param ReadString + sectionVariables option
+// ===========================================================================
+void ConfigParser::ReadString(std::wstring& out,
+                              std::wstring_view section,
+                              const WCHAR*       key,
+                              std::wstring       defValue,
+                              ReadStringOptions  opts)
+{
+    const std::wstring sec(section);
+    const std::wstring k(key ? key : L"");
+    auto sIt = m_Sections.find(sec);
+    bool keyPresent = false;
+    if (sIt != m_Sections.end()) {
+        auto kIt = sIt->second.find(k);
+        if (kIt != sIt->second.end()) {
+            // Found: copy raw, apply standard variable expansion.
+            out = kIt->second;
+            ReplaceVariables(out);
+            keyPresent = true;
+        }
+    }
+    if (!keyPresent) {
+        out = std::move(defValue);
+        ReplaceVariables(out);
+    }
+    // opts.sectionVariables: Rainmeter 原生允许 [MeasureName] 在字符串内。
+    //   骨架阶段不做段变量求值（需要 Skin 上下文），但保留 flag 在
+    //   struct 中便于后续接入时启用。
+    (void)opts;
+    m_LastDefaultUsed = !keyPresent;
+}
+
+// ===========================================================================
+// Batch-2: Mouse::ReplaceMouseVariables skeleton shims.
+// Real $MOUSEX$ / [$MOUSEX] variable resolution needs WindowProc hook, cursor
+// hit-test cache and a Meter → Skin → CRainmeter chain; the scope here is
+// purely "let Batch-2 link and run".  Stubs are defined as out-of-line to
+// avoid touching the inline-convenience region (which stays header-only to
+// match existing M4 lookup ABI).
+// ===========================================================================
+void ConfigParser::ExpandSectionVariables(std::wstring& /*result*/,
+                                          VariableExpandMode /*mode*/,
+                                          Meter* /*ctxMeter*/)
+{
+    // Intentionally a no-op.  Upstream's Section-variable expansion engine
+    // lands in Batch-3 along with the ConfigParser::ReplaceVariables upgrade
+    // that handles [SectionKey] syntax.
+}
+
+std::wstring ConfigParser::GetDollarMouseVariable(const std::wstring& /*name*/,
+                                                  Meter* /*ctxMeter*/) const
+{
+    // Intentionally empty: caller (Mouse::ReplaceMouseVariables) skips the
+    // $..$ substitution when the returned wstring is empty().
+    return {};
+}
+
 }  // namespace raindock

@@ -1,0 +1,194 @@
+// Copyright (c) Rainmeter Team. Source code licensed under GNU GPL v2 (see LICENSE file).
+
+#include "StdAfx.h"
+#include "Platform.h"
+
+namespace
+{
+
+const OSVERSIONINFOEX& GetVersionInfo()
+{
+	static OSVERSIONINFOEX s_Version = []() -> OSVERSIONINFOEX
+	{
+		OSVERSIONINFOEX version = { sizeof(OSVERSIONINFOEX) };
+		using RtlGetVersionFunc = LONG (WINAPI*)(OSVERSIONINFOW*);
+		auto rtlGetVersion = (RtlGetVersionFunc)GetProcAddress(GetModuleHandle(L"ntdll"), "RtlGetVersion");
+		if (rtlGetVersion)
+		{
+			rtlGetVersion((OSVERSIONINFOW*)&version);
+		}
+
+		return version;
+	} ();
+
+	return s_Version;
+}
+
+};  // namespace
+
+bool IsWindows11OrGreater()
+{
+	static bool s_Result = IsWindows10OrGreater() && GetVersionInfo().dwBuildNumber >= 22000;
+	return s_Result;
+}
+
+uint32_t Platform::GetBuildNumber()
+{
+	return GetVersionInfo().dwBuildNumber;
+}
+
+Platform::Platform()
+{
+	Initialize();
+}
+
+Platform::~Platform()
+{
+}
+
+Platform& Platform::GetInstance()
+{
+	static Platform s_Platform;
+	return s_Platform;
+}
+
+void Platform::Initialize()
+{
+	m_Is64Bit = [&]() -> bool
+	{
+#if _WIN64
+		return true;
+#endif
+		auto isWow64Process = (decltype(IsWow64Process)*)GetProcAddress(GetModuleHandle(L"kernel32"), "IsWow64Process");
+		if (isWow64Process)
+		{
+			BOOL isWow64 = FALSE;
+			return isWow64Process(GetCurrentProcess(), &isWow64) && isWow64;
+		}
+		return false;
+	} ();
+
+#if defined(_M_ARM64) || defined(_M_ARM64EC)
+	m_IsEmulatedOnArm64 = false;
+#else
+	// This is an x86/x64 binary, so an ARM64 host machine means we are being emulated.
+	// Note that |processMachine| cannot be used here: x64 processes on ARM64 are not
+	// considered WOW64 (which is 32-bit on 64-bit) and report IMAGE_FILE_MACHINE_UNKNOWN.
+	USHORT processMachine = IMAGE_FILE_MACHINE_UNKNOWN;
+	USHORT nativeMachine = IMAGE_FILE_MACHINE_UNKNOWN;
+	m_IsEmulatedOnArm64 = IsWow64Process2(GetCurrentProcess(), &processMachine, &nativeMachine) &&
+		nativeMachine == IMAGE_FILE_MACHINE_ARM64;
+#endif
+
+	const auto buildNumber = std::to_wstring(GetVersionInfo().dwBuildNumber);
+
+	// Retrieve information from registry
+	std::wstring ubrStr;
+	std::wstring servicePack;
+
+	HKEY hkey = nullptr;
+	if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, L"Software\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_QUERY_VALUE, &hkey) == ERROR_SUCCESS)
+	{
+		WCHAR buffer[256] = { 0 };
+		DWORD size = _countof(buffer);
+
+		// Prefer "DisplayVersion" over "ReleaseId"
+		if ((RegQueryValueEx(hkey, L"DisplayVersion", nullptr, nullptr, (LPBYTE)buffer, (LPDWORD)&size) == ERROR_SUCCESS) ||
+			(RegQueryValueEx(hkey, L"ReleaseId", nullptr, nullptr, (LPBYTE)buffer, (LPDWORD)&size) == ERROR_SUCCESS))
+		{
+			m_DisplayVersion = buffer;
+		}
+
+		size = _countof(buffer);
+		if (RegQueryValueEx(hkey, L"ProductName", nullptr, nullptr, (LPBYTE)buffer, (LPDWORD)&size) == ERROR_SUCCESS)
+		{
+			m_ProductName = buffer;
+
+			if (IsWindows11OrGreater() && !m_DisplayVersion.empty())
+			{
+				size_t pos = m_ProductName.find(L"Windows 10");
+				if (_wcsnicmp(L"Windows 10", m_ProductName.c_str(), 10) == 0)
+				{
+					m_ProductName.replace(pos, 10, L"Windows 11");
+				}
+			}
+		}
+
+		DWORD major = 0;
+		size = sizeof(DWORD);
+		if (RegQueryValueEx(hkey, L"CurrentMajorVersionNumber", nullptr, nullptr, (LPBYTE)&major, (LPDWORD)&size) == ERROR_SUCCESS && major >= 10)
+		{
+			DWORD minor = 0;
+			size = sizeof(DWORD);
+			if (RegQueryValueEx(hkey, L"CurrentMinorVersionNumber", nullptr, nullptr, (LPBYTE)&minor, (LPDWORD)&size) == ERROR_SUCCESS && minor >= 0)
+			{
+				m_RawVersion = std::to_wstring(major);
+				m_RawVersion += L'.';
+				m_RawVersion += std::to_wstring(minor);
+				m_RawVersion += L'.';
+				m_RawVersion += buildNumber;
+			}
+		}
+
+		DWORD ubr = 0;
+		size = sizeof(DWORD);
+		if (RegQueryValueEx(hkey, L"UBR", nullptr, nullptr, (LPBYTE)&ubr, &size) == ERROR_SUCCESS && ubr > 0)
+		{
+			ubrStr = L'.';
+			ubrStr += std::to_wstring(ubr);
+		}
+
+		size = _countof(buffer);
+		if (RegQueryValueEx(hkey, L"CSDVersion", nullptr, nullptr, (LPBYTE)buffer, (LPDWORD)&size) == ERROR_SUCCESS)
+		{
+			servicePack = buffer;
+		}
+
+		RegCloseKey(hkey);
+		hkey = nullptr;
+	}
+
+	const bool isServer = IsWindowsServer();
+	m_Name = isServer ? L"Windows Server " : L"Windows ";
+	m_Name += [&]() -> LPCWSTR
+	{
+		return
+			IsWindows11OrGreater() ? L"11" :
+			IsWindows10OrGreater() ? (isServer ?
+				(m_DisplayVersion == L"21H2" ? L"2022" :
+				(m_DisplayVersion == L"1809" ? L"2019" : L"2016")) : L"10") :
+			L"Unknown";
+	} ();
+
+	m_FriendlyName = m_ProductName;
+	if (!m_DisplayVersion.empty())
+	{
+		m_FriendlyName += L' ';
+		m_FriendlyName += m_DisplayVersion;
+	}
+	if (!buildNumber.empty())
+	{
+		m_FriendlyName += L" (build ";
+		m_FriendlyName += buildNumber;
+		m_FriendlyName += ubrStr;
+
+		if (!servicePack.empty())
+		{
+			m_FriendlyName += L": ";
+			m_FriendlyName += servicePack;
+		}
+
+		m_FriendlyName += L')';
+	}
+	m_FriendlyName += m_Is64Bit ? L" 64-bit" : L" 32-bit";
+
+	// Retrieve user language LCID
+	LANGID id = GetUserDefaultUILanguage();
+	LCID lcid = MAKELCID(id, SORT_DEFAULT);
+	WCHAR buffer[LOCALE_NAME_MAX_LENGTH];
+	if (GetLocaleInfo(lcid, LOCALE_SENGLISHLANGUAGENAME, buffer, _countof(buffer)) == 0)
+	{
+		_snwprintf_s(buffer, _TRUNCATE, L"%s", L"<error>");
+	}
+	m_UserLanguage = buffer;
+}

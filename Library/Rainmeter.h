@@ -23,9 +23,13 @@
 #endif
 #include <windows.h>
 
+// Batch-2 forward decl: upstream Section class lives at global scope.
+class Section;
+
 namespace raindock {
 
 class Skin;
+class Measure;  // Batch-2 forward decl.
 class CommandHandler;
 
 // 皮肤清单注册表（扫描 Skins/ 目录）。骨架阶段最小占位。
@@ -52,6 +56,15 @@ public:
 
     // 命令分发（Bang 命令）
     void ExecuteCommand(const std::wstring& command, Skin* skin);
+
+    // ===== Batch-2 upstream compatibility =====
+    // Upstream Section / IfActions call `GetRainmeter().ExecuteActionCommand(
+    // action.c_str(), context)` with either a global ::Section* (Section base)
+    // or a local raindock::Measure* (IfActions DoIfActions uses &measure).
+    // Both are routed to ExecuteCommand() — context skin is recovered from
+    // the Measure/Section when we can.
+    void ExecuteActionCommand(const WCHAR* command, ::Section* ctx);
+    void ExecuteActionCommand(const WCHAR* command, Measure* ctx);
 
     // 访问器
     HINSTANCE GetInstanceHandle() const { return m_hInstance; }
