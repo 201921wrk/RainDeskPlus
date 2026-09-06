@@ -19,14 +19,16 @@ namespace raindock {
 class MeasureTime : public Measure
 {
 public:
-    MeasureTime(Skin* skin, std::wstring name);
+    MeasureTime(Skin* skin, const WCHAR* name);
     ~MeasureTime() override;
+
+    UINT GetTypeID() override { return TypeID<MeasureTime>(); }
 
     void Initialize(ConfigParser& parser, const std::wstring& iniPath) override;
     const wchar_t* GetString() override;
 
 protected:
-    void ReadOptions(ConfigParser& parser, const std::wstring& section) override;
+    void ReadOptions(ConfigParser& parser, std::wstring_view section) override;
     void UpdateValue() override;
 
 private:

@@ -145,9 +145,9 @@ void Logger::LogMeasureVF(Level lvl, Measure* measure, const WCHAR* fmt, va_list
     // so cast to Section* is not safe. Use generic tag "measure".
     const WCHAR* src = L"measure";
     if (measure) {
-        // Best-effort name lookup via Section's GetName not possible (no
-        // inheritance).  Fall back to Measure::GetName().
-        src = measure->GetName().c_str();
+        // Best-effort name lookup via Section's GetName (Measure now derives
+        // from Section).
+        src = measure->GetName();
     }
     LogInternal(lvl, std::chrono::system_clock::now(), src, msg.c_str());
 }

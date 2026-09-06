@@ -11,15 +11,31 @@
 
 #include "ConfigParser.h"
 #include "Measure.h"
+#include "Skin.h"
+#include "Mouse.h"
 
 namespace raindock {
+
+Meter::~Meter()
+{
+    delete m_Mouse;
+    m_Mouse = nullptr;
+}
+
+::Mouse& Meter::GetMouse()
+{
+    if (!m_Mouse) m_Mouse = new ::Mouse(m_Skin, this);
+    return *m_Mouse;
+}
 
 void Meter::Initialize(ConfigParser& parser, Measure* measure)
 {
     m_Measure = measure;
+    Section::ReadOptions(parser, m_Name);
     m_X = parser.ReadInt(m_Name, L"X", 0);
     m_Y = parser.ReadInt(m_Name, L"Y", 0);
     m_Hidden = parser.ReadBool(m_Name, L"Hidden", false);
+    GetMouse().ReadOptions(parser, m_Name);
 }
 
 void Meter::Update()

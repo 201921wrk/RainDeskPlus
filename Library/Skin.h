@@ -55,6 +55,18 @@ public:
     // 执行 Bang 命令。
     void DoBang(const std::wstring& bang);
 
+    // ===== M5 Bang 支持方法 =====
+    // 立即重绘一帧（对应 !Redraw）。
+    void Redraw();
+    // 窗口显隐控制（对应 !Hide / !Show / !Toggle）。
+    void Hide();
+    void Show();
+    void Toggle();
+    // 重新加载当前 INI（对应 !Refresh）。返回是否成功。
+    bool Reload();
+    // 当前 INI 路径（Load 后有效）。
+    const std::wstring& GetIniPath() const { return m_IniPath; }
+
     HWND GetWindow() const { return m_Window; }
     void SetWindow(HWND hWnd) { m_Window = hWnd; }
     // WM_TIMER 驱动下已成功呈现的帧数（Smoke 断言用）。
@@ -95,6 +107,12 @@ private:
     // 更新 + 本帧渲染到窗口渲染目标（成功 EndDraw 才计帧）。
     void RenderFrame();
 
+    // ===== B3 鼠标派发 =====
+    // 命中测试：返回坐标 (x,y) 下的第一个可见 Meter（客户区坐标）。
+    Meter* FindMeterAtPoint(int x, int y) const;
+    // 鼠标消息 → Meter::Mouse 动作分发（按钮/滚轮/悬停/离开）。
+    void HandleMouseMessage(UINT msg, WPARAM wParam, LPARAM lParam);
+
     std::vector<std::unique_ptr<Measure>> m_Measures;
     std::vector<std::unique_ptr<Meter>>   m_Meters;
     std::unique_ptr<ConfigParser>         m_Parser;
@@ -104,6 +122,7 @@ private:
     HINSTANCE               m_hInstance = nullptr;
     uint32_t                m_UpdateInterval = 1000;
     uint32_t                m_Frames = 0;
+    std::wstring            m_IniPath;   // 最近一次 Load 的 INI 路径（!Refresh 用）
 
     // ===== Batch-2 upstream compatibility members =====
     int                     m_DefaultUpdateDivider = 1;
@@ -114,6 +133,10 @@ private:
     MathParser*             m_MathParser = nullptr;   // heap-allocated to keep sizeof stable & avoid full MathParser.h in header.
     // Lazily-allocated global-scope Mouse instance (Batch-2).
     ::Mouse*                m_MousePtr = nullptr;
+
+    // ===== B3 鼠标派发状态 =====
+    Meter*                  m_MouseOverMeter = nullptr;   // 当前悬停的 Meter（不拥有）
+    bool                    m_TrackingMouseLeave = false; // 是否已调用 TrackMouseEvent(TME_LEAVE)
 };
 
 }  // namespace raindock

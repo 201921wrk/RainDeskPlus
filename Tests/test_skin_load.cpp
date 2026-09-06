@@ -63,7 +63,7 @@ int main()
     CHECK(measures.size() == 1, "1 measure created");
     if (!measures.empty()) {
         const auto& m = measures[0];
-        CHECK(m->GetName() == L"MeasureCPU", "Measure name is MeasureCPU");
+        CHECK(wcscmp(m->GetName(), L"MeasureCPU") == 0, "Measure name is MeasureCPU");
         m->Update();
         double val = m->GetValue();
         printf("  CPU value: %.1f%%\n", val);
@@ -80,7 +80,7 @@ int main()
     CHECK(meters.size() == 1, "1 meter created");
     if (!meters.empty()) {
         const auto& meter = meters[0];
-        CHECK(meter->GetName() == L"MeterCPUText", "Meter name is MeterCPUText");
+        CHECK(wcscmp(meter->GetName(), L"MeterCPUText") == 0, "Meter name is MeterCPUText");
         printf("  Meter position: (%d, %d)\n", meter->GetX(), meter->GetY());
         CHECK(meter->GetX() == 20, "Meter X = 20");
         CHECK(meter->GetY() == 20, "Meter Y = 20");

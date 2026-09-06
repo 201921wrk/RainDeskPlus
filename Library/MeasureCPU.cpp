@@ -39,8 +39,8 @@ inline double FtToDouble(const FILETIME& ft)
 
 }  // namespace
 
-MeasureCPU::MeasureCPU(Skin* skin, std::wstring name)
-    : Measure(skin, std::move(name))
+MeasureCPU::MeasureCPU(Skin* skin, const WCHAR* name)
+    : Measure(skin, name)
 {
     m_MaxValue = 100.0;
     m_MinValue =   0.0;
@@ -51,7 +51,7 @@ MeasureCPU::~MeasureCPU()
     Finalize();
 }
 
-void MeasureCPU::ReadOptions(ConfigParser& parser, const std::wstring& section)
+void MeasureCPU::ReadOptions(ConfigParser& parser, std::wstring_view section)
 {
     Measure::ReadOptions(parser, section);
 

@@ -25,13 +25,15 @@ public:
         TotalBytes    // 总字节
     };
 
-    MeasureMemory(Skin* skin, std::wstring name);
+    MeasureMemory(Skin* skin, const WCHAR* name);
     ~MeasureMemory() override = default;
+
+    UINT GetTypeID() override { return TypeID<MeasureMemory>(); }
 
     void Initialize(ConfigParser& parser, const std::wstring& iniPath) override;
 
 protected:
-    void ReadOptions(ConfigParser& parser, const std::wstring& section) override;
+    void ReadOptions(ConfigParser& parser, std::wstring_view section) override;
     void UpdateValue() override;
 
 private:

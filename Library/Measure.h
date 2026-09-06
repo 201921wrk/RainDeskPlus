@@ -14,6 +14,10 @@
 #include <utility>
 #include <vector>
 
+#include "Section.h"
+#include "IfActions.h"
+#include "Util.h"
+
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -22,7 +26,7 @@
 namespace raindock {
 
 class ConfigParser;
-class Skin;  // 上游 Measure 由 Skin 拥有并传入构造；M2 再接入
+class Skin;  // 上游 Measure 由 Skin 拥有并传入构造。
 
 // 数据源基类。所有 MeasureXXX 继承此类。
 //
@@ -35,7 +39,7 @@ class Skin;  // 上游 Measure 由 Skin 拥有并传入构造；M2 再接入
 // 若子类只需最基本行为，不再 override Initialize/Update，而是：
 //   - override ReadOptions(parser, section) 读取自定义 INI 键；
 //   - override UpdateValue() 做采样并写入 m_Value / m_StringValue。
-class Measure
+class Measure : public ::Section
 {
 public:
     virtual ~Measure();
@@ -44,7 +48,7 @@ public:
     Measure& operator=(const Measure&) = delete;
 
     // 构造：提供 name；Skin* 允许为空（M1 占位）。
-    Measure(Skin* skin, std::wstring name);
+    Measure(Skin* skin, const WCHAR* name);
 
     // 初始化并从 INI 读取配置（读 [m_Name] 段）。
     // 骨架兼容：iniPath 仍保留，实际上游使用 parser 直接读段。
@@ -68,10 +72,7 @@ public:
     // 释放资源。默认 no-op（子类 override）。
     virtual void Finalize();
 
-    // UpdateDivider：每多少次 Update() 触发一次 UpdateValue()（= Rainmeter UpdateDivider）。
-    // 默认 1 = 每次都采样。
-    void     SetUpdateDivider(int div)      { m_UpdateDivider = div > 0 ? div : 1; }
-    int      GetUpdateDivider() const       { return m_UpdateDivider; }
+    // 更新间隔（骨架：另存字段，与 Section 的 UpdateDivider 无关）。
     void     SetUpdateInterval(uint32_t ms) { m_UpdateInterval = ms; }
     uint32_t GetUpdateInterval() const      { return m_UpdateInterval; }
 
@@ -88,20 +89,18 @@ public:
     void   SetInvert(bool v)     { m_Invert = v; }
     bool   GetInvert() const     { return m_Invert; }
 
-    const std::wstring& GetName() const { return m_Name; }
-    void SetName(const std::wstring& name) { m_Name = name; }
-
     // Substitute：按顺序的「查找-替换」对（骨架只做字面量替换；M2 升级到 Regex 分支）
     void AddSubstitute(std::wstring find, std::wstring replace) {
         m_Substitute.emplace_back(std::move(find), std::move(replace));
     }
     void ClearSubstitute() { m_Substitute.clear(); }
 
-    Skin* GetSkin() const { return m_Skin; }
+    // ===== Section base-type id（上游 GetBaseTypeID）=====
+    UINT GetBaseTypeID() override { return TypeID<Measure>(); }
 
 protected:
     // 读取 [section] 下的公共选项 + 子类自定义。子类 override 应先调基类。
-    virtual void ReadOptions(ConfigParser& parser, const std::wstring& section);
+    virtual void ReadOptions(ConfigParser& parser, std::wstring_view section);
     // 实际采样入口（由 Update() 跳帧后调用）。子类 MUST override。
     virtual void UpdateValue() = 0;
     // 对字符串做 Substitute 替换。
@@ -110,9 +109,6 @@ protected:
     // 供子类写采样结果
     double        m_Value = 0.0;
     std::wstring  m_StringValue;
-
-    Skin*         m_Skin = nullptr;
-    std::wstring  m_Name;
 
     // 子类需频繁读写的范围/状态字段（对齐 Rainmeter Measure 原生 protected 暴露风格）
     bool          m_Disabled  = false;
@@ -124,10 +120,11 @@ protected:
 
     bool          m_Initialized = false;  // Initialize() 幂等保护
 
+    // IfCondition / IfAbove / IfBelow / IfEqual / IfMatch（上游 IfActions）。
+    IfActions     m_IfActions;
+
 private:
     uint32_t      m_UpdateInterval = 1000;
-    int           m_UpdateDivider  = 1;
-    int           m_UpdateCounter  = 0;  // 已跳过的 Update 次数
 
     std::vector<std::pair<std::wstring, std::wstring>> m_Substitute;  // <find, replace>
     std::wstring  m_Substituted;  // 暂存 CheckSubstitute 返回结果（返回的指针指向这里）

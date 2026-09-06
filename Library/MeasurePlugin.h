@@ -24,8 +24,10 @@ namespace raindock {
 class MeasurePlugin : public Measure
 {
 public:
-    MeasurePlugin(Skin* skin, std::wstring name);
+    MeasurePlugin(Skin* skin, const WCHAR* name);
     ~MeasurePlugin() override;
+
+    UINT GetTypeID() override { return TypeID<MeasurePlugin>(); }
 
     void Initialize(ConfigParser& parser, const std::wstring& iniPath) override;
     void Reload(ConfigParser& parser, const std::wstring& iniPath, double* maxValue);
@@ -33,7 +35,7 @@ public:
     void Finalize() override;
 
 protected:
-    void ReadOptions(ConfigParser& parser, const std::wstring& section) override;
+    void ReadOptions(ConfigParser& parser, std::wstring_view section) override;
     void UpdateValue() override;
 
 private:

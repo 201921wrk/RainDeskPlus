@@ -18,6 +18,10 @@ class MeterBar : public Meter
 public:
     enum class Orientation { Horizontal, Vertical };
 
+    MeterBar(Skin* skin, const WCHAR* name) : Meter(skin, name) {}
+
+    UINT GetTypeID() override { return TypeID<MeterBar>(); }
+
     void Initialize(ConfigParser& parser, Measure* measure) override;
     void Draw(ID2D1RenderTarget* rt) override;
 

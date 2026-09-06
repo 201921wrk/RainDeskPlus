@@ -33,6 +33,11 @@
 #include "../Common/MathParser.h"
 #include "Mouse.h"
 
+// B3 鼠标派发：鼠标动作命令统一交给 CRainmeter -> CommandHandler 执行。
+#include "Rainmeter.h"
+
+#include <windowsx.h>   // GET_X_LPARAM / GET_WHEEL_DELTA_WPARAM / GET_XBUTTON_WPARAM
+
 namespace raindock {
 
 namespace {
@@ -42,17 +47,46 @@ const D2D1_COLOR_F kBackgroundColor = {0.07f, 0.07f, 0.09f, 1.0f};
 
 std::unique_ptr<Measure> CreateMeasure(const std::wstring& type, Skin* skin, const std::wstring& name)
 {
-    if (type == L"Time")   return std::make_unique<MeasureTime>(skin, name);
-    if (type == L"CPU")    return std::make_unique<MeasureCPU>(skin, name);
-    if (type == L"Memory") return std::make_unique<MeasureMemory>(skin, name);
-    if (type == L"Net")    return std::make_unique<MeasureNet>(skin, name);
+    if (type == L"Time")   return std::make_unique<MeasureTime>(skin, name.c_str());
+    if (type == L"CPU")    return std::make_unique<MeasureCPU>(skin, name.c_str());
+    if (type == L"Memory") return std::make_unique<MeasureMemory>(skin, name.c_str());
+    if (type == L"Net")    return std::make_unique<MeasureNet>(skin, name.c_str());
     return nullptr;   // Plugin/RSS/Registry 等：M5+ 按需接入
 }
 
-std::unique_ptr<Meter> CreateMeter(const std::wstring& type)
+std::unique_ptr<Meter> CreateMeter(const std::wstring& type, Skin* skin, const WCHAR* name)
 {
-    if (type == L"String") return std::make_unique<MeterString>();
+    if (type == L"String") return std::make_unique<MeterString>(skin, name);
     return nullptr;   // Image/Bar/Line/Roundline：M5+ 接入
+}
+
+// Win32 鼠标消息 → 上游 ::Mouse 的 MOUSEACTION 枚举（按钮/滚轮部分）。
+// 悬停/离开（MOUSE_OVER/MOUSE_LEAVE）由 HandleMouseMessage 单独处理。
+MOUSEACTION MouseActionForMessage(UINT msg, WPARAM wParam)
+{
+    switch (msg) {
+    case WM_LBUTTONDOWN:   return MOUSE_LMB_DOWN;
+    case WM_LBUTTONUP:     return MOUSE_LMB_UP;
+    case WM_LBUTTONDBLCLK: return MOUSE_LMB_DBLCLK;
+    case WM_MBUTTONDOWN:   return MOUSE_MMB_DOWN;
+    case WM_MBUTTONUP:     return MOUSE_MMB_UP;
+    case WM_MBUTTONDBLCLK: return MOUSE_MMB_DBLCLK;
+    case WM_RBUTTONDOWN:   return MOUSE_RMB_DOWN;
+    case WM_RBUTTONUP:     return MOUSE_RMB_UP;
+    case WM_RBUTTONDBLCLK: return MOUSE_RMB_DBLCLK;
+    case WM_XBUTTONDOWN:
+        return (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) ? MOUSE_X1MB_DOWN : MOUSE_X2MB_DOWN;
+    case WM_XBUTTONUP:
+        return (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) ? MOUSE_X1MB_UP : MOUSE_X2MB_UP;
+    case WM_XBUTTONDBLCLK:
+        return (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) ? MOUSE_X1MB_DBLCLK : MOUSE_X2MB_DBLCLK;
+    case WM_MOUSEWHEEL:
+        return (GET_WHEEL_DELTA_WPARAM(wParam) > 0) ? MOUSE_MW_UP : MOUSE_MW_DOWN;
+    case WM_MOUSEHWHEEL:
+        return (GET_WHEEL_DELTA_WPARAM(wParam) > 0) ? MOUSE_MW_RIGHT : MOUSE_MW_LEFT;
+    default:
+        return MOUSEACTION_NONE;
+    }
 }
 
 }  // namespace
@@ -99,6 +133,12 @@ Skin::~Skin()
 bool Skin::Load(const std::wstring& iniPath)
 {
     if (!m_Parser->LoadFile(iniPath)) return false;
+    m_IniPath = iniPath;
+
+    // Reload 场景：清空旧 Measure/Meter 后按 INI 重建（Meter 先于 Measure
+    // 释放，避免 Meter 析构时解引用已释放的 Measure 指针）。
+    m_Meters.clear();
+    m_Measures.clear();
 
     m_UpdateInterval = static_cast<uint32_t>(
         m_Parser->ReadInt(L"Rainmeter", L"Update", 1000));
@@ -118,14 +158,13 @@ bool Skin::Load(const std::wstring& iniPath)
     for (const auto& section : m_Parser->GetSections()) {
         const std::wstring type = m_Parser->ReadString(section, L"Meter", L"");
         if (type.empty()) continue;
-        auto t = CreateMeter(type);
+        auto t = CreateMeter(type, this, section.c_str());
         if (!t) continue;
-        t->SetName(section);
         Measure* bound = nullptr;
         const std::wstring mname = m_Parser->ReadString(section, L"MeasureName", L"");
         if (!mname.empty()) {
             for (auto& m : m_Measures) {
-                if (m->GetName() == mname) { bound = m.get(); break; }
+                if (wcscmp(m->GetName(), mname.c_str()) == 0) { bound = m.get(); break; }
             }
         }
         t->Initialize(*m_Parser, bound);
@@ -147,9 +186,37 @@ void Skin::Render(ID2D1RenderTarget* rt)
     for (auto& t : m_Meters) t->Draw(rt);
 }
 
-void Skin::DoBang(const std::wstring& /*bang*/)
+void Skin::DoBang(const std::wstring& bang)
 {
-    // TODO(M5): 由 CRainmeter -> CommandHandler 统一分发，Skin 仅持有上下文。
+    if (bang.empty()) return;
+    CRainmeter::GetInstance().ExecuteCommand(bang, this);
+}
+
+void Skin::Redraw()
+{
+    RenderFrame();
+}
+
+void Skin::Hide()
+{
+    if (m_Window) ::ShowWindow(m_Window, SW_HIDE);
+}
+
+void Skin::Show()
+{
+    if (m_Window) ::ShowWindow(m_Window, SW_SHOWNA);
+}
+
+void Skin::Toggle()
+{
+    if (!m_Window) return;
+    if (::IsWindowVisible(m_Window)) Hide(); else Show();
+}
+
+bool Skin::Reload()
+{
+    if (m_IniPath.empty()) return false;
+    return Load(m_IniPath);
 }
 
 bool Skin::Show(HINSTANCE hInstance, int nCmdShow)
@@ -226,6 +293,76 @@ void Skin::RenderFrame()
     if (SUCCEEDED(m_RT->EndDraw())) ++m_Frames;
 }
 
+Meter* Skin::FindMeterAtPoint(int x, int y) const
+{
+    // 倒序遍历：后绘制的 Meter 在上层，优先命中（与 Rainmeter 一致）。
+    for (auto it = m_Meters.rbegin(); it != m_Meters.rend(); ++it) {
+        Meter* meter = it->get();
+        if (meter->GetHidden()) continue;
+        const int w = meter->GetWidth();
+        const int h = meter->GetHeight();
+        if (w <= 0 || h <= 0) continue;
+        if (x >= meter->GetX() && x < meter->GetX() + w &&
+            y >= meter->GetY() && y < meter->GetY() + h) {
+            return meter;
+        }
+    }
+    return nullptr;
+}
+
+void Skin::HandleMouseMessage(UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    // ---- 悬停/离开：WM_MOUSEMOVE + WM_MOUSELEAVE 追踪 ----
+    if (msg == WM_MOUSEMOVE) {
+        if (!m_TrackingMouseLeave && m_Window) {
+            TRACKMOUSEEVENT tme = {};
+            tme.cbSize = sizeof(tme);
+            tme.dwFlags = TME_LEAVE;
+            tme.hwndTrack = m_Window;
+            ::TrackMouseEvent(&tme);
+            m_TrackingMouseLeave = true;
+        }
+
+        Meter* meter = FindMeterAtPoint(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+        if (meter != m_MouseOverMeter) {
+            std::wstring cmd;
+            if (m_MouseOverMeter &&
+                m_MouseOverMeter->GetMouse().GetActionCommand(MOUSE_LEAVE, cmd)) {
+                DoBang(cmd);
+            }
+            m_MouseOverMeter = meter;
+            if (meter && meter->GetMouse().GetActionCommand(MOUSE_OVER, cmd)) {
+                DoBang(cmd);
+            }
+        }
+        return;
+    }
+
+    if (msg == WM_MOUSELEAVE) {
+        m_TrackingMouseLeave = false;
+        if (m_MouseOverMeter) {
+            std::wstring cmd;
+            if (m_MouseOverMeter->GetMouse().GetActionCommand(MOUSE_LEAVE, cmd)) {
+                DoBang(cmd);
+            }
+            m_MouseOverMeter = nullptr;
+        }
+        return;
+    }
+
+    // ---- 按钮/滚轮：命中测试后执行对应动作 ----
+    const MOUSEACTION action = MouseActionForMessage(msg, wParam);
+    if (action == MOUSEACTION_NONE) return;
+
+    Meter* meter = FindMeterAtPoint(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+    if (!meter) return;
+
+    std::wstring command;
+    if (meter->GetMouse().GetActionCommand(action, command)) {
+        DoBang(command);
+    }
+}
+
 LRESULT CALLBACK Skin::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     Skin* self = nullptr;
@@ -249,6 +386,25 @@ LRESULT CALLBACK Skin::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
     }
     case WM_DESTROY:
         if (self) { ::KillTimer(hWnd, 1); self->SetWindow(nullptr); }
+        return 0;
+    // ===== B3 鼠标派发 =====
+    case WM_MOUSEMOVE:
+    case WM_MOUSELEAVE:
+    case WM_LBUTTONDOWN:
+    case WM_LBUTTONUP:
+    case WM_LBUTTONDBLCLK:
+    case WM_MBUTTONDOWN:
+    case WM_MBUTTONUP:
+    case WM_MBUTTONDBLCLK:
+    case WM_RBUTTONDOWN:
+    case WM_RBUTTONUP:
+    case WM_RBUTTONDBLCLK:
+    case WM_XBUTTONDOWN:
+    case WM_XBUTTONUP:
+    case WM_XBUTTONDBLCLK:
+    case WM_MOUSEWHEEL:
+    case WM_MOUSEHWHEEL:
+        if (self) self->HandleMouseMessage(msg, wParam, lParam);
         return 0;
     default:
         return ::DefWindowProcW(hWnd, msg, wParam, lParam);

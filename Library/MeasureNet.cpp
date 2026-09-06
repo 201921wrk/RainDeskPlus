@@ -56,12 +56,12 @@ bool IsLoopback(const MIB_IF_ROW2& row)
 
 }  // namespace
 
-MeasureNet::MeasureNet(Skin* skin, std::wstring name)
-    : Measure(skin, std::move(name))
+MeasureNet::MeasureNet(Skin* skin, const WCHAR* name)
+    : Measure(skin, name)
 {
 }
 
-void MeasureNet::ReadOptions(ConfigParser& parser, const std::wstring& section)
+void MeasureNet::ReadOptions(ConfigParser& parser, std::wstring_view section)
 {
     Measure::ReadOptions(parser, section);
 

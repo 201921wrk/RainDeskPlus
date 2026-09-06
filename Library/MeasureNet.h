@@ -31,13 +31,15 @@ public:
         OutMulticast
     };
 
-    MeasureNet(Skin* skin, std::wstring name);
+    MeasureNet(Skin* skin, const WCHAR* name);
     ~MeasureNet() override = default;
+
+    UINT GetTypeID() override { return TypeID<MeasureNet>(); }
 
     void Initialize(ConfigParser& parser, const std::wstring& iniPath) override;
 
 protected:
-    void ReadOptions(ConfigParser& parser, const std::wstring& section) override;
+    void ReadOptions(ConfigParser& parser, std::wstring_view section) override;
     void UpdateValue() override;
 
 private:

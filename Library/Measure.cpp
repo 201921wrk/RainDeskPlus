@@ -24,8 +24,8 @@
 
 namespace raindock {
 
-Measure::Measure(Skin* skin, std::wstring name)
-    : m_Skin(skin), m_Name(std::move(name))
+Measure::Measure(Skin* skin, const WCHAR* name)
+    : Section(skin, name)
 {
 }
 
@@ -34,10 +34,13 @@ Measure::~Measure() = default;
 void Measure::Disable()    { m_Disabled = true; }
 void Measure::Enable()     { m_Disabled = false; }
 
-void Measure::ReadOptions(ConfigParser& parser, const std::wstring& section)
+void Measure::ReadOptions(ConfigParser& parser, std::wstring_view section)
 {
-    // 公共 INI 键（名称与 Rainmeter 一一对应）
-    SetUpdateDivider(parser.ReadInt(section, L"UpdateDivider", 1));
+    // 公共 INI 键（名称与 Rainmeter 一一对应）；UpdateDivider 由 Section 统一管理。
+    Section::ReadOptions(parser, section);
+    m_IfActions.ReadOptions(parser, section);
+    m_IfActions.ReadConditionOptions(parser, section);
+
     m_MinValue = parser.ReadFloat(section, L"MinValue", m_MinValue);
     m_MaxValue = parser.ReadFloat(section, L"MaxValue", m_MaxValue);
     m_Invert   = parser.ReadBool(section, L"InvertMeasure", m_Invert);
@@ -81,13 +84,13 @@ void Measure::Update(bool rereadOptions)
     // 留 hook 给 M2；当前语义下不读 INI 不会影响采样一致性。
     (void)rereadOptions;
 
-    ++m_UpdateCounter;
-    if (m_UpdateCounter < m_UpdateDivider) {
+    if (!Section::UpdateCounter()) {
         return;  // 跳帧：保持上一次 m_Value
     }
-    m_UpdateCounter = 0;
     m_StringValue.clear();  // 清空字符串缓存，GetString() 将按需重新格式化
     UpdateValue();  // 子类采样
+    m_IfActions.DoIfActions(*this, GetValue());
+    DoUpdateAction();
 }
 
 double Measure::GetValue()

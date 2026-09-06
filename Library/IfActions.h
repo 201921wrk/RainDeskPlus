@@ -32,9 +32,9 @@ public:
 		Set(value, trueAction, falseAction);
 	}
 
-	inline void Set(std::wstring value, std::wstring trueAction, std::wstring falseAction)
+	inline void Set(std::wstring newValue, std::wstring trueAction, std::wstring falseAction)
 	{
-		this->value = value;
+		this->value = newValue;
 		this->tAction = trueAction;
 		this->fAction = falseAction;
 	}

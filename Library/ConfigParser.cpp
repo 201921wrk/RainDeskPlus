@@ -181,6 +181,18 @@ void ConfigParser::SetVariable(const std::wstring& name, const std::wstring& val
     m_Sections[L"Variables"][name] = value;
 }
 
+void ConfigParser::SetValue(const std::wstring& section,
+                            const std::wstring& key,
+                            const std::wstring& value)
+{
+    if (section == L"Variables") {
+        m_Variables[key] = value;
+    }
+    m_Sections[section][key] = value;
+    auto it = std::find(m_SectionOrder.begin(), m_SectionOrder.end(), section);
+    if (it == m_SectionOrder.end()) m_SectionOrder.push_back(section);
+}
+
 // -----------------------------------------------------------------------
 // 字符串读取 + 数字/布尔 包装
 // -----------------------------------------------------------------------

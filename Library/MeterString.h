@@ -22,7 +22,10 @@ namespace raindock {
 class MeterString : public Meter
 {
 public:
+    MeterString(Skin* skin, const WCHAR* name) : Meter(skin, name) {}
     ~MeterString() override;
+
+    UINT GetTypeID() override { return TypeID<MeterString>(); }
 
     void Initialize(ConfigParser& parser, Measure* measure) override;
     void Update() override;

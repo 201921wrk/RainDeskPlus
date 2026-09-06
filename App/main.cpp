@@ -287,8 +287,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int)
             time.Initialize(parser, iniPath);
             time.Update();
 
-            MeterString ms;
-            ms.SetName(L"MeterText");
+            MeterString ms(nullptr, L"MeterText");
             ms.Initialize(parser, &time);
 
             const int tw = ms.GetTextWidth(), th = ms.GetTextHeight();

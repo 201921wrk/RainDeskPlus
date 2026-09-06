@@ -21,6 +21,10 @@ namespace raindock {
 class MeterImage : public Meter
 {
 public:
+    MeterImage(Skin* skin, const WCHAR* name) : Meter(skin, name) {}
+
+    UINT GetTypeID() override { return TypeID<MeterImage>(); }
+
     void Initialize(ConfigParser& parser, Measure* measure) override;
     void Draw(ID2D1RenderTarget* rt) override;
 

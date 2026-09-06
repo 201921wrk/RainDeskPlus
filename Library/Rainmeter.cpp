@@ -17,6 +17,59 @@
 
 namespace raindock {
 
+// ===========================================================================
+// SkinRegistry：扫描 Skins 根目录，登记 config -> iniPath
+// ===========================================================================
+void SkinRegistry::Refresh(const std::wstring& skinsRoot)
+{
+    m_Skins.clear();
+    if (skinsRoot.empty()) return;
+
+    std::wstring root = skinsRoot;
+    if (root.back() != L'\\' && root.back() != L'/') root += L'\\';
+
+    WIN32_FIND_DATAW fd{};
+    HANDLE hFind = ::FindFirstFileW((root + L"*").c_str(), &fd);
+    if (hFind == INVALID_HANDLE_VALUE) return;
+
+    do {
+        if ((fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0) continue;
+        if (fd.cFileName[0] == L'.') continue;   // 跳过 . / ..
+
+        const std::wstring dir = root + fd.cFileName;
+        std::wstring iniPath = dir + L"\\skin.ini";
+
+        DWORD attr = ::GetFileAttributesW(iniPath.c_str());
+        if (attr == INVALID_FILE_ATTRIBUTES || (attr & FILE_ATTRIBUTE_DIRECTORY)) {
+            // 无 skin.ini：退化为目录下首个 .ini。
+            iniPath.clear();
+            WIN32_FIND_DATAW ifd{};
+            HANDLE ih = ::FindFirstFileW((dir + L"\\*.ini").c_str(), &ifd);
+            if (ih != INVALID_HANDLE_VALUE) {
+                do {
+                    if ((ifd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0) {
+                        iniPath = dir + L"\\" + ifd.cFileName;
+                        break;
+                    }
+                } while (::FindNextFileW(ih, &ifd));
+                ::FindClose(ih);
+            }
+        }
+
+        if (iniPath.empty()) continue;
+        m_Skins.emplace_back(fd.cFileName, iniPath);
+    } while (::FindNextFileW(hFind, &fd));
+    ::FindClose(hFind);
+}
+
+bool SkinRegistry::Find(const std::wstring& config, std::wstring& iniPath) const
+{
+    for (const auto& kv : m_Skins) {
+        if (kv.first == config) { iniPath = kv.second; return true; }
+    }
+    return false;
+}
+
 CRainmeter::CRainmeter() = default;
 
 CRainmeter::~CRainmeter()
@@ -40,6 +93,7 @@ bool CRainmeter::Initialize(HINSTANCE hInstance)
     // 当前：仅占位。
     m_hInstance = hInstance;
     m_CommandHandler = std::make_unique<CommandHandler>();
+    m_SkinRegistry = std::make_unique<SkinRegistry>();
     m_Initialized = true;
     return true;
 }
@@ -70,6 +124,27 @@ void CRainmeter::DeactivateSkin(Skin* skin)
     for (auto it = m_Skins.begin(); it != m_Skins.end(); ++it) {
         if (it->second == skin) { delete skin; m_Skins.erase(it); return; }
     }
+}
+
+void CRainmeter::RefreshSkinRegistry()
+{
+    if (m_SkinRegistry) m_SkinRegistry->Refresh(m_SkinRootPath);
+}
+
+Skin* CRainmeter::ActivateConfig(const std::wstring& config)
+{
+    if (!m_SkinRegistry) return nullptr;
+    std::wstring iniPath;
+    if (!m_SkinRegistry->Find(config, iniPath)) return nullptr;
+    return ActivateSkin(config, iniPath);
+}
+
+void CRainmeter::DeactivateConfig(const std::wstring& config)
+{
+    auto it = m_Skins.find(config);
+    if (it == m_Skins.end()) return;
+    delete it->second;
+    m_Skins.erase(it);
 }
 
 void CRainmeter::ExecuteCommand(const std::wstring& command, Skin* skin)

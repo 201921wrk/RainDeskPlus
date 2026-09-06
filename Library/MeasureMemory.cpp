@@ -26,8 +26,8 @@
 
 namespace raindock {
 
-MeasureMemory::MeasureMemory(Skin* skin, std::wstring name)
-    : Measure(skin, std::move(name))
+MeasureMemory::MeasureMemory(Skin* skin, const WCHAR* name)
+    : Measure(skin, name)
 {
     MEMORYSTATUSEX stat{};
     stat.dwLength = sizeof(stat);
@@ -38,7 +38,7 @@ MeasureMemory::MeasureMemory(Skin* skin, std::wstring name)
     }
 }
 
-void MeasureMemory::ReadOptions(ConfigParser& parser, const std::wstring& section)
+void MeasureMemory::ReadOptions(ConfigParser& parser, std::wstring_view section)
 {
     // 保留 Measure 未读取的 m_MaxValue 语义：用户手写 MaxValue= 优先级最高。
     const double oldMax = m_MaxValue;

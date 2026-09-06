@@ -1,9 +1,11 @@
 /*
- * RainDeskPlus - M5 CRainmeter + CommandHandler Smoke 测试
- * 验证：单例初始化、皮肤激活/停用、Bang 命令解析与分发。
+ * RainDeskPlus - M5/M6 CRainmeter + CommandHandler Smoke 测试
+ * 验证：单例初始化、皮肤激活/停用、Bang 命令解析与分发、
+ *       SetVariable/SetOption/显隐、皮肤切换 (ActivateConfig/DeactivateConfig)。
  */
 #include "Rainmeter.h"
 #include "Skin.h"
+#include "ConfigParser.h"
 
 #include <cstdio>
 #include <string>
@@ -38,9 +40,21 @@ static std::wstring GetSkinIniPath()
     return L"Skins/example/skin.ini";
 }
 
+static std::wstring GetSkinsRootPath()
+{
+    wchar_t path[MAX_PATH];
+    GetModuleFileNameW(nullptr, path, MAX_PATH);
+    std::wstring exePath(path);
+    size_t pos = exePath.find_last_of(L"\\/");
+    if (pos != std::wstring::npos) {
+        return exePath.substr(0, pos + 1) + L"..\\..\\..\\Skins";
+    }
+    return L"Skins";
+}
+
 int main()
 {
-    printf("=== M5 CRainmeter + CommandHandler Smoke Test ===\n\n");
+    printf("=== M5/M6 CRainmeter + CommandHandler Smoke Test ===\n\n");
 
     // ---- 1. CRainmeter 单例与初始化 ----
     printf("1. CRainmeter singleton & Initialize\n");
@@ -95,8 +109,36 @@ int main()
     printf("  [PASS] Whitespace-only command handled\n");
     printf("\n");
 
-    // ---- 4. 多个皮肤 + Bang 分发 ----
-    printf("4. Multi-skin bang dispatch\n");
+    // ---- 4. Bang：SetVariable / SetOption / 显隐 ----
+    printf("4. Bang commands (SetVariable/SetOption/Hide/Show/Toggle/Redraw)\n");
+
+    // !SetVariable
+    rm.ExecuteCommand(L"!SetVariable MyVar HelloWorld", skin);
+    std::wstring varValue;
+    CHECK(skin->GetParser().GetVariable(L"MyVar", varValue) && varValue == L"HelloWorld",
+          "!SetVariable stores variable");
+
+    // 覆盖已存在的 [Variables] 项
+    rm.ExecuteCommand(L"!SetVariable Color 1,2,3,4", skin);
+    CHECK(skin->GetParser().GetVariable(L"Color", varValue) && varValue == L"1,2,3,4",
+          "!SetVariable overwrites existing variable");
+
+    // !SetOption（写入 [MeterCPUText] 的 Text 键）
+    rm.ExecuteCommand(L"!SetOption MeterCPUText Text World", skin);
+    CHECK(skin->GetParser().ReadString(L"MeterCPUText", L"Text", L"") == L"World",
+          "!SetOption sets section key");
+
+    // 显隐/重绘/更新（无窗口时静默 no-op，仅验证不崩溃）
+    rm.ExecuteCommand(L"!Hide", skin);
+    rm.ExecuteCommand(L"!Show", skin);
+    rm.ExecuteCommand(L"!Toggle", skin);
+    rm.ExecuteCommand(L"!Redraw", skin);
+    rm.ExecuteCommand(L"!Update", skin);
+    printf("  [PASS] Hide/Show/Toggle/Redraw/Update executed without crash\n");
+    printf("\n");
+
+    // ---- 5. 多个皮肤 + Bang 分发 ----
+    printf("5. Multi-skin bang dispatch\n");
     // 激活第二个皮肤（复用同一个 ini）
     Skin* skin2 = rm.ActivateSkin(L"Example2", iniPath);
     CHECK(skin2 != nullptr, "Second skin activated");
@@ -112,14 +154,43 @@ int main()
     CHECK(rm.GetSkins().size() == 1, "Back to 1 skin after deactivating second");
     printf("\n");
 
-    // ---- 5. 停用皮肤 ----
-    printf("5. Deactivate skin\n");
+    // ---- 6. 停用皮肤 ----
+    printf("6. Deactivate skin\n");
     rm.DeactivateSkin(skin);
     CHECK(rm.GetSkins().empty(), "Skin map empty after deactivate");
     printf("\n");
 
-    // ---- 6. Finalize ----
-    printf("6. Finalize\n");
+    // ---- 7. M6 皮肤切换：SkinRegistry + !ActivateConfig / !DeactivateConfig ----
+    printf("7. Skin switching (ActivateConfig/DeactivateConfig)\n");
+    rm.SetSkinRootPath(GetSkinsRootPath());
+    rm.RefreshSkinRegistry();
+
+    const SkinRegistry* reg = rm.GetSkinRegistry();
+    CHECK(reg != nullptr, "SkinRegistry available after Refresh");
+    if (reg) {
+        CHECK(reg->GetSkins().size() == 1, "Registry enumerated 1 config");
+        if (reg->GetSkins().size() == 1) {
+            CHECK(reg->GetSkins().front().first == L"example",
+                  "Registry config name 'example'");
+        }
+    }
+
+    // 经 CommandHandler Bang 路由激活
+    rm.ExecuteCommand(L"!ActivateConfig example", nullptr);
+    CHECK(rm.GetSkins().size() == 1, "1 skin activated via !ActivateConfig");
+    CHECK(rm.GetSkins().count(L"example") == 1, "Skin key 'example' present");
+
+    // 经 Bang 停用
+    rm.ExecuteCommand(L"!DeactivateConfig example", nullptr);
+    CHECK(rm.GetSkins().empty(), "Skin deactivated via !DeactivateConfig");
+
+    // 未知 config：静默忽略，不崩溃
+    rm.ExecuteCommand(L"!ActivateConfig NoSuchConfig", nullptr);
+    CHECK(rm.GetSkins().empty(), "Unknown !ActivateConfig handled gracefully");
+    printf("\n");
+
+    // ---- 8. Finalize ----
+    printf("8. Finalize\n");
     rm.Finalize();
     printf("  [PASS] Finalize succeeded\n");
     printf("\n");

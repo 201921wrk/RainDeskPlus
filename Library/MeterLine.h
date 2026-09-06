@@ -19,6 +19,10 @@ namespace raindock {
 class MeterLine : public Meter
 {
 public:
+    MeterLine(Skin* skin, const WCHAR* name) : Meter(skin, name) {}
+
+    UINT GetTypeID() override { return TypeID<MeterLine>(); }
+
     void Initialize(ConfigParser& parser, Measure* measure) override;
     void Draw(ID2D1RenderTarget* rt) override;
     void Update() override;

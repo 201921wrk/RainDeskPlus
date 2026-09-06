@@ -218,6 +218,8 @@ public:
 
     // 变量存取：Measure 更新动态变量用。#name# 语法由 ReadString 自动替换。
     void SetVariable(const std::wstring& name, const std::wstring& value);
+    // 任意段键值写入（!SetOption 用）。段不存在则新建；Variables 段同步到变量表。
+    void SetValue(const std::wstring& section, const std::wstring& key, const std::wstring& value);
     bool GetVariable(const std::wstring& name, std::wstring& value) const;
     const std::map<std::wstring, std::wstring>& GetVariables() const { return m_Variables; }
 

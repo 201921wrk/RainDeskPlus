@@ -13,8 +13,8 @@
 
 namespace raindock {
 
-MeasurePlugin::MeasurePlugin(Skin* skin, std::wstring name)
-    : Measure(skin, std::move(name))
+MeasurePlugin::MeasurePlugin(Skin* skin, const WCHAR* name)
+    : Measure(skin, name)
 {
 }
 
@@ -23,7 +23,7 @@ MeasurePlugin::~MeasurePlugin()
     Finalize();
 }
 
-void MeasurePlugin::ReadOptions(ConfigParser& parser, const std::wstring& section)
+void MeasurePlugin::ReadOptions(ConfigParser& parser, std::wstring_view section)
 {
     Measure::ReadOptions(parser, section);
     m_PluginPath = parser.ReadString(section, L"Plugin", m_PluginPath);

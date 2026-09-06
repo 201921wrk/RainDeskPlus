@@ -23,8 +23,8 @@
 
 namespace raindock {
 
-MeasureTime::MeasureTime(Skin* skin, std::wstring name)
-    : Measure(skin, std::move(name))
+MeasureTime::MeasureTime(Skin* skin, const WCHAR* name)
+    : Measure(skin, name)
 {
 }
 
@@ -36,7 +36,7 @@ MeasureTime::~MeasureTime()
     }
 }
 
-void MeasureTime::ReadOptions(ConfigParser& parser, const std::wstring& section)
+void MeasureTime::ReadOptions(ConfigParser& parser, std::wstring_view section)
 {
     Measure::ReadOptions(parser, section);
 

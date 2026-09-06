@@ -105,8 +105,7 @@ int main()
     // 浅灰背景，便于观察文本
     rt->Clear(D2D1::ColorF(D2D1::ColorF::LightGray));
 
-    MeterString meter;
-    meter.SetName(L"TestString");
+    MeterString meter(nullptr, L"TestString");
     meter.SetText(L"Hello RainDeskPlus! M3 Smoke Test");
 
     // 手动设置属性（不通过 ConfigParser）
