@@ -434,7 +434,7 @@ std::vector<std::wstring> ConfigParser::GetKeys(const std::wstring& section) con
     return out;
 }
 
-std::vector<std::wstring> ConfigParser::GetSections() const
+const std::vector<std::wstring>& ConfigParser::GetSections() const
 {
     return m_SectionOrder;  // 出现顺序，而非 map 字典序
 }

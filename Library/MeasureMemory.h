@@ -7,8 +7,7 @@
  * 对应 Rainmeter: Library/MeasureMemory.h（内存占用，直接复用）。
  * 依赖：GlobalMemoryStatusEx。
  */
-#ifndef RAINDOCK_LIBRARY_MEASURE_MEMORY_H_
-#define RAINDOCK_LIBRARY_MEASURE_MEMORY_H_
+#pragma once
 
 #include "Measure.h"
 
@@ -42,5 +41,3 @@ private:
 };
 
 }  // namespace raindock
-
-#endif  // RAINDOCK_LIBRARY_MEASURE_MEMORY_H_

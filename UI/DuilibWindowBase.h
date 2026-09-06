@@ -9,8 +9,7 @@
  *
  * 接入真实 Duilib 时，替换 third_party/duilib 路径并改 include 即可。
  */
-#ifndef RAINDOCK_UI_DUILIB_WINDOW_BASE_H_
-#define RAINDOCK_UI_DUILIB_WINDOW_BASE_H_
+#pragma once
 
 #ifdef RAINDOCK_USE_DUILIB
 // 真实 Duilib 头（路径依 vendor 版本调整）
@@ -34,5 +33,3 @@ public:
     void Close()  { /* TODO */ }
 };
 #endif
-
-#endif  // RAINDOCK_UI_DUILIB_WINDOW_BASE_H_

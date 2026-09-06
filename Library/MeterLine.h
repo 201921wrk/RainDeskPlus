@@ -6,8 +6,7 @@
  *
  * 对应 Rainmeter: Library/MeterLine.h（折线图，直接复用）。
  */
-#ifndef RAINDOCK_LIBRARY_METER_LINE_H_
-#define RAINDOCK_LIBRARY_METER_LINE_H_
+#pragma once
 
 #include "Meter.h"
 
@@ -39,5 +38,3 @@ private:
 };
 
 }  // namespace raindock
-
-#endif  // RAINDOCK_LIBRARY_METER_LINE_H_

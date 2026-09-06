@@ -6,8 +6,7 @@
  *
  * 对应 Rainmeter: Library/MeterBar.h（进度条，直接复用）。
  */
-#ifndef RAINDOCK_LIBRARY_METER_BAR_H_
-#define RAINDOCK_LIBRARY_METER_BAR_H_
+#pragma once
 
 #include "Meter.h"
 
@@ -33,5 +32,3 @@ private:
 };
 
 }  // namespace raindock
-
-#endif  // RAINDOCK_LIBRARY_METER_BAR_H_

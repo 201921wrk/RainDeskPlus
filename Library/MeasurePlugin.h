@@ -7,8 +7,7 @@
  * 对应 Rainmeter: Library/MeasurePlugin.h（第三方插件加载，直接复用）。
  * 插件 DLL 必须导出 Initialize / Reload / Update / Finalize。
  */
-#ifndef RAINDOCK_LIBRARY_MEASURE_PLUGIN_H_
-#define RAINDOCK_LIBRARY_MEASURE_PLUGIN_H_
+#pragma once
 
 #include "Measure.h"
 
@@ -57,5 +56,3 @@ private:
 };
 
 }  // namespace raindock
-
-#endif  // RAINDOCK_LIBRARY_MEASURE_PLUGIN_H_

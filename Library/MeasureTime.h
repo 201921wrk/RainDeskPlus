@@ -6,8 +6,7 @@
  *
  * 对应 Rainmeter: Library/MeasureTime.h（时间/日期，直接复用，无外部依赖）。
  */
-#ifndef RAINDOCK_LIBRARY_MEASURE_TIME_H_
-#define RAINDOCK_LIBRARY_MEASURE_TIME_H_
+#pragma once
 
 #include "Measure.h"
 
@@ -42,5 +41,3 @@ private:
 };
 
 }  // namespace raindock
-
-#endif  // RAINDOCK_LIBRARY_MEASURE_TIME_H_

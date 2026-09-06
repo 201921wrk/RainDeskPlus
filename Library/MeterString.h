@@ -7,8 +7,7 @@
  * 对应 Rainmeter: Library/MeterString.h（文本渲染，D2D 重构版）。
  * 依赖：DirectWrite（IDWriteTextLayout）+ Direct2D（ID2D1RenderTarget）。
  */
-#ifndef RAINDOCK_LIBRARY_METER_STRING_H_
-#define RAINDOCK_LIBRARY_METER_STRING_H_
+#pragma once
 
 #include "Meter.h"
 
@@ -58,5 +57,3 @@ private:
 };
 
 }  // namespace raindock
-
-#endif  // RAINDOCK_LIBRARY_METER_STRING_H_

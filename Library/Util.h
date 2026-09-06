@@ -8,8 +8,7 @@
  * 的 GetUniqueID / TypeID<T> 部分）。其余上游 Util 功能（GetString / GetIcon /
  * GetFormattedString 等）暂不引入。
  */
-#ifndef RAINDOCK_LIBRARY_UTIL_H_
-#define RAINDOCK_LIBRARY_UTIL_H_
+#pragma once
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -21,5 +20,3 @@ UINT GetUniqueID();
 
 template <typename T>
 UINT TypeID() { static UINT id = GetUniqueID(); return id; }
-
-#endif  // RAINDOCK_LIBRARY_UTIL_H_

@@ -41,8 +41,8 @@ enum MOUSEACTION : uint32_t
 	MOUSE_OVER = 1 << 19,
 	MOUSE_LEAVE = 1 << 20,
 
-	MOUSEACTION_ALL = ~(-1 << 21),
-	MOUSEACTION_BUTTON = ~(-1 << 15),
+	MOUSEACTION_ALL = ~(0xFFFFFFFFu << 21),
+	MOUSEACTION_BUTTON = ~(0xFFFFFFFFu << 15),
 	MOUSEACTION_NONE = 0
 };
 
@@ -80,7 +80,7 @@ struct MouseAction
 	MOUSEACTIONSTATE state;
 	MOUSEACTIONSTATE previousState;
 
-	MouseAction() : state(MOUSEACTION_ENABLED), previousState(MOUSEACTION_DISABLED) { }
+	MouseAction() : type(MOUSEACTION_NONE), state(MOUSEACTION_ENABLED), previousState(MOUSEACTION_DISABLED) { }
 };
 
 class Mouse

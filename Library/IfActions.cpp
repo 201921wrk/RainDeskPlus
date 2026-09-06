@@ -37,7 +37,7 @@ void IfActions::ReadOptions(ConfigParser& parser, std::wstring_view section)
 	m_BelowValue = parser.ReadFloat(section, L"IfBelowValue", 0.0);
 
 	parser.ReadString(m_EqualAction, section, L"IfEqualAction", L"", { .sectionVariables = false });
-	m_EqualValue = (int64_t)parser.ReadFloat(section, L"IfEqualValue", 0.0);
+	m_EqualValue = static_cast<int64_t>(parser.ReadFloat(section, L"IfEqualValue", 0.0));
 }
 
 void IfActions::ReadConditionOptions(ConfigParser& parser, std::wstring_view section)
@@ -139,7 +139,7 @@ void IfActions::DoIfActions(Measure& measure, double value)
 	// IfEqual
 	if (!m_EqualAction.empty())
 	{
-		if ((int64_t)value == m_EqualValue)
+		if (static_cast<int64_t>(value) == m_EqualValue)
 		{
 			if (!m_EqualCommitted)
 			{
@@ -195,7 +195,7 @@ void IfActions::DoIfActions(Measure& measure, double value)
 		if (!item.value.empty() && (!item.tAction.empty() || !item.fAction.empty()))
 		{
 			double result = 0.0;
-			const WCHAR* errMsg = measure.GetSkin()->GetMathParser().Parse(item.value.c_str(), &result);
+			const WCHAR* errMsg = measure.GetSkin()->GetMathParser().Parse(item.value, &result);
 			if (errMsg != nullptr)
 			{
 				if (!item.parseError)
@@ -272,7 +272,7 @@ void IfActions::DoIfActions(Measure& measure, double value)
 				const WCHAR* value = measure.GetStringValue();
 				std::wstring_view str = value ? value : L"";
 				int ovector[300];
-				int rc = re.Execute(str, 0, ovector, (int)_countof(ovector));
+				int rc = re.Execute(str, 0, ovector, static_cast<int>(_countof(ovector)));
 				if (rc > 0)		// Match
 				{
 					item.fCommitted = false;
@@ -301,7 +301,7 @@ void IfActions::DoIfActions(Measure& measure, double value)
 void IfActions::SetState(double& value)
 {
 	// Set IfAction committed state to false if condition is not met with value = 0
-	if (m_EqualValue != (int64_t)value)
+	if (m_EqualValue != static_cast<int64_t>(value))
 	{
 		m_EqualCommitted = false;
 	}

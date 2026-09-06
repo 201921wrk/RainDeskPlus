@@ -7,8 +7,7 @@
  * 对应 Rainmeter: Library/MeterImage.h（图像渲染，直接复用）。
  * 依赖：WIC（图像解码）+ Direct2D 位图。
  */
-#ifndef RAINDOCK_LIBRARY_METER_IMAGE_H_
-#define RAINDOCK_LIBRARY_METER_IMAGE_H_
+#pragma once
 
 #include "Meter.h"
 
@@ -36,5 +35,3 @@ private:
 };
 
 }  // namespace raindock
-
-#endif  // RAINDOCK_LIBRARY_METER_IMAGE_H_

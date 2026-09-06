@@ -11,8 +11,7 @@
  *
  * 对应 Rainmeter: Library/Rainmeter.h（简化版，单例 + 生命周期 + 皮肤集合 + 命令分发）。
  */
-#ifndef RAINDOCK_LIBRARY_RAINMETER_H_
-#define RAINDOCK_LIBRARY_RAINMETER_H_
+#pragma once
 
 #include <map>
 #include <memory>
@@ -106,5 +105,3 @@ private:
 };
 
 }  // namespace raindock
-
-#endif  // RAINDOCK_LIBRARY_RAINMETER_H_

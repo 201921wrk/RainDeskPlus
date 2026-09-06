@@ -7,8 +7,7 @@
  * 对应 Rainmeter: Library/MeasureCPU.h（CPU 占用率，直接复用）。
  * 依赖：Windows 性能计数器（Pdh）。
  */
-#ifndef RAINDOCK_LIBRARY_MEASURE_CPU_H_
-#define RAINDOCK_LIBRARY_MEASURE_CPU_H_
+#pragma once
 
 #include "Measure.h"
 
@@ -42,5 +41,3 @@ private:
 };
 
 }  // namespace raindock
-
-#endif  // RAINDOCK_LIBRARY_MEASURE_CPU_H_

@@ -6,8 +6,7 @@
  *
  * 对应 Rainmeter: Library/CommandHandler.h（Bang 命令解析与执行，直接复用）。
  */
-#ifndef RAINDOCK_LIBRARY_COMMANDHANDLER_H_
-#define RAINDOCK_LIBRARY_COMMANDHANDLER_H_
+#pragma once
 
 #include <functional>
 #include <string>
@@ -34,5 +33,3 @@ private:
 };
 
 }  // namespace raindock
-
-#endif  // RAINDOCK_LIBRARY_COMMANDHANDLER_H_

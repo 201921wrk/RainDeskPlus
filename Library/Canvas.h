@@ -13,8 +13,7 @@
  *   - WIC 位图 → PNG 落盘（人工核验渲染结果）
  * M4 将扩展：HWND/DC 窗口渲染目标、皮肤级画布生命周期。
  */
-#ifndef RAINDOCK_LIBRARY_CANVAS_H_
-#define RAINDOCK_LIBRARY_CANVAS_H_
+#pragma once
 
 #include <cstdint>
 #include <string>
@@ -52,5 +51,3 @@ public:
 };
 
 }  // namespace raindock
-
-#endif  // RAINDOCK_LIBRARY_CANVAS_H_

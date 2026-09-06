@@ -5,8 +5,7 @@
  *
  * 单个 Dock 图标项。详见 docs/DOCK_DESIGN.md。
  */
-#ifndef RAINDOCK_DOCK_DOCK_ITEM_H_
-#define RAINDOCK_DOCK_DOCK_ITEM_H_
+#pragma once
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -30,5 +29,3 @@ struct DockItem
 };
 
 }  // namespace raindock
-
-#endif  // RAINDOCK_DOCK_DOCK_ITEM_H_

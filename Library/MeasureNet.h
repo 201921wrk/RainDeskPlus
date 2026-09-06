@@ -7,8 +7,7 @@
  * 对应 Rainmeter: Library/MeasureNet.h（网络流量，直接复用）。
  * 依赖：IP Helper API（GetIfTable / GetIfEntry2）。
  */
-#ifndef RAINDOCK_LIBRARY_MEASURE_NET_H_
-#define RAINDOCK_LIBRARY_MEASURE_NET_H_
+#pragma once
 
 #include "Measure.h"
 
@@ -57,5 +56,3 @@ private:
 };
 
 }  // namespace raindock
-
-#endif  // RAINDOCK_LIBRARY_MEASURE_NET_H_

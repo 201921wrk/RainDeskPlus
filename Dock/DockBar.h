@@ -6,8 +6,7 @@
  * Dock 容器。详见 docs/DOCK_DESIGN.md §2.2。
  * 骨架阶段：不继承 Duilib 窗口基类（RAINDOCK_USE_DUILIB=OFF 时为普通类）。
  */
-#ifndef RAINDOCK_DOCK_DOCK_BAR_H_
-#define RAINDOCK_DOCK_DOCK_BAR_H_
+#pragma once
 
 #include "DockItem.h"
 #include "DockMagnify.h"
@@ -67,5 +66,3 @@ private:
 };
 
 }  // namespace raindock
-
-#endif  // RAINDOCK_DOCK_DOCK_BAR_H_

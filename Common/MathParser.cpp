@@ -67,17 +67,17 @@ enum class Token
 
 struct Operation
 {
-	Operator type;
-	BYTE funcIndex;
-	char prevTop;
+	Operator type = Operator::Invalid;
+	BYTE funcIndex = 0;
+	char prevTop = 0;
 };
 
 struct Function
 {
-	const WCHAR* name;
-	SingleArgFunction singleArgProc;
-	MultiArgFunction multiArgProc;
-	BYTE length;
+	const WCHAR* name = nullptr;
+	SingleArgFunction singleArgProc = nullptr;
+	MultiArgFunction multiArgProc = nullptr;
+	BYTE length = 0;
 };
 
 static double frac(double x);
@@ -316,7 +316,7 @@ const WCHAR* MathParser::Parse(std::wstring_view formula, double* result, ParseM
 		case Token::Error:
 			return eSyntax;
 
-	case Token::Final:
+		case Token::Final:
 			if (mode == ParseMode::MatchingClosingBracket)
 			{
 				return eBrackets;

@@ -10,8 +10,8 @@ namespace {
 
 struct Entity
 {
-	const WCHAR* name;
-	WCHAR ch;
+	const WCHAR* name = nullptr;
+	WCHAR ch = 0;
 };
 
 // List from:

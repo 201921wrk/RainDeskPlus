@@ -6,8 +6,7 @@
  *
  * 对应 Rainmeter: Library/ConfigParser.h（INI 解析引擎，直接复用）。
  */
-#ifndef RAINDOCK_LIBRARY_CONFIGPARSER_H_
-#define RAINDOCK_LIBRARY_CONFIGPARSER_H_
+#pragma once
 
 #include <cstdint>
 #include <map>
@@ -74,7 +73,7 @@ public:
     // 列出某段下所有键名。
     std::vector<std::wstring> GetKeys(const std::wstring& section) const;
     // 列出所有段名（按 INI 出现顺序，如 [Rainmeter] [Variables] [MeasureCPU] ...）。
-    std::vector<std::wstring> GetSections() const;
+    const std::vector<std::wstring>& GetSections() const;
 
     bool IsSectionExists(const std::wstring& section) const;
 
@@ -242,5 +241,3 @@ private:
 };
 
 }  // namespace raindock
-
-#endif  // RAINDOCK_LIBRARY_CONFIGPARSER_H_

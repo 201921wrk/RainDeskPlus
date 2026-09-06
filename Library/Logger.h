@@ -35,7 +35,7 @@ public:
 
 	struct Entry
 	{
-		Level level;
+		Level level = Level::Notice;
 		std::wstring timestamp;
 		std::wstring source;
 		std::wstring message;
@@ -43,13 +43,13 @@ public:
 
 	static Logger& GetInstance();
 
-	void SetLogFilePath(std::wstring path) { m_LogFilePath = path; }
+	void SetLogFilePath(const std::wstring& path) { m_LogFilePath = path; }
 
 	void StartLogFile();
 	void StopLogFile();
 	void DeleteLogFile();
 
-	bool IsLogToFile() { return m_LogToFile; }
+	bool IsLogToFile() const { return m_LogToFile; }
 	void SetLogToFile(bool logToFile);
 
 	void Log(Logger::Entry* entry);
@@ -61,9 +61,9 @@ public:
 	void LogSectionVF(Logger::Level level, Section* section, const WCHAR* format, va_list args);
 	void LogMeasureVF(Logger::Level level, Measure* section, const WCHAR* format, va_list args);
 
-	const std::wstring& GetLogFilePath() { return m_LogFilePath; }
+	const std::wstring& GetLogFilePath() const { return m_LogFilePath; }
 
-	const std::list<Entry>& GetEntries() { return m_Entries; }
+	const std::list<Entry>& GetEntries() const { return m_Entries; }
 
 private:
 	void LogInternal(Level level, std::chrono::system_clock::time_point timestamp, const WCHAR* source, const WCHAR* msg);

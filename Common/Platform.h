@@ -13,13 +13,13 @@ public:
 	bool Is64Bit() { return m_Is64Bit; }
 	bool IsEmulatedOnArm64() { return m_IsEmulatedOnArm64; }
 
-	std::wstring GetName() { return m_Name; }
-	std::wstring GetFriendlyName() { return m_FriendlyName; }
-	std::wstring GetReleaseID() { return m_DisplayVersion; }  // Can be empty
-	std::wstring GetRawVersion() { return m_RawVersion; }  // ex. 10.0.10240
+	const std::wstring& GetName() const { return m_Name; }
+	const std::wstring& GetFriendlyName() const { return m_FriendlyName; }
+	const std::wstring& GetReleaseID() const { return m_DisplayVersion; }  // Can be empty
+	const std::wstring& GetRawVersion() const { return m_RawVersion; }  // ex. 10.0.10240
 	uint32_t GetBuildNumber();
-	std::wstring GetProductName() { return m_ProductName; }
-	std::wstring GetUserLanguage() { return m_UserLanguage; }
+	const std::wstring& GetProductName() const { return m_ProductName; }
+	const std::wstring& GetUserLanguage() const { return m_UserLanguage; }
 
 private:
 	Platform();

@@ -6,8 +6,7 @@
  * 悬停放大效果算法。参考 RocketDock：以鼠标到图标中心的距离衰减。
  * 详见 docs/DOCK_DESIGN.md §4。
  */
-#ifndef RAINDOCK_DOCK_DOCK_MAGNIFY_H_
-#define RAINDOCK_DOCK_DOCK_MAGNIFY_H_
+#pragma once
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -33,5 +32,3 @@ private:
 };
 
 }  // namespace raindock
-
-#endif  // RAINDOCK_DOCK_DOCK_MAGNIFY_H_

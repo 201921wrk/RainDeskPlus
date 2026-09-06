@@ -7,8 +7,7 @@
  * 详见 docs/DOCK_DESIGN.md §2.4。
  * 骨架阶段：RAINDOCK_USE_DUILIB=OFF 时继承占位基类，仅暴露 DockBar。
  */
-#ifndef RAINDOCK_DOCK_DOCK_WINDOW_H_
-#define RAINDOCK_DOCK_DOCK_WINDOW_H_
+#pragma once
 
 #include "DockBar.h"
 #include "DuilibWindowBase.h"   // UI/
@@ -31,5 +30,3 @@ private:
 };
 
 }  // namespace raindock
-
-#endif  // RAINDOCK_DOCK_DOCK_WINDOW_H_

@@ -6,8 +6,7 @@
  *
  * 对应 Rainmeter: Library/Measure.h（基类，直接复用）。
  */
-#ifndef RAINDOCK_LIBRARY_MEASURE_H_
-#define RAINDOCK_LIBRARY_MEASURE_H_
+#pragma once
 
 #include <cstdint>
 #include <string>
@@ -131,5 +130,3 @@ private:
 };
 
 }  // namespace raindock
-
-#endif  // RAINDOCK_LIBRARY_MEASURE_H_

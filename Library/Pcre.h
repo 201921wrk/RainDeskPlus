@@ -25,7 +25,7 @@ public:
 	void Compile(const WCHAR* pattern, const char** error)
 	{
 		Reset();
-		m_Pcre = pcre16_compile((PCRE_SPTR16)pattern, 0, error, &m_ErrorOffset, nullptr);
+		m_Pcre = pcre16_compile(reinterpret_cast<PCRE_SPTR16>(pattern), 0, error, &m_ErrorOffset, nullptr);
 	}
 
 	void Reset()
@@ -38,7 +38,7 @@ public:
 
 	int Execute(std::wstring_view subject, int options, int* offsets, int offsetCount) const
 	{
-		return pcre16_exec(m_Pcre, nullptr, (PCRE_SPTR16)subject.data(), (int)subject.length(), m_Offset, options, offsets, offsetCount);
+		return pcre16_exec(m_Pcre, nullptr, reinterpret_cast<PCRE_SPTR16>(subject.data()), static_cast<int>(subject.length()), m_Offset, options, offsets, offsetCount);
 	}
 
 	int GetErrorOffset() const { return m_ErrorOffset; }

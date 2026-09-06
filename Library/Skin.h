@@ -9,8 +9,7 @@
  * M4：原生 Win32 弹窗（WS_POPUP）+ D2D HwndRenderTarget（软件类型）+
  *     WM_TIMER 驱动 Update/Render 循环。Duilib 窗口替换按 D5 计划另行接入。
  */
-#ifndef RAINDOCK_LIBRARY_SKIN_H_
-#define RAINDOCK_LIBRARY_SKIN_H_
+#pragma once
 
 #include <memory>
 #include <string>
@@ -98,7 +97,7 @@ public:
     // uses this when loading custom .cur/.ani cursors.  M4 skeleton uses
     // Skins\<skin-name>\@Resources\ (may not exist — callers must tolerate
     // empty/missing path).
-    std::wstring GetResourcesPath() const { return m_ResourcesPath; }
+    const std::wstring& GetResourcesPath() const { return m_ResourcesPath; }
     void SetResourcesPath(std::wstring p) { m_ResourcesPath = std::move(p); }
 
 private:
@@ -140,5 +139,3 @@ private:
 };
 
 }  // namespace raindock
-
-#endif  // RAINDOCK_LIBRARY_SKIN_H_

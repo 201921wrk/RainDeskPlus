@@ -21,7 +21,7 @@ using raindock::Skin;
 class IfState
 {
 public:
-	IfState(std::wstring value, std::wstring trueAction, std::wstring falseAction) :
+	IfState(const std::wstring& value, const std::wstring& trueAction, const std::wstring& falseAction) :
 		value(),
 		tAction(),
 		fAction(),
@@ -32,7 +32,7 @@ public:
 		Set(value, trueAction, falseAction);
 	}
 
-	inline void Set(std::wstring newValue, std::wstring trueAction, std::wstring falseAction)
+	inline void Set(const std::wstring& newValue, const std::wstring& trueAction, const std::wstring& falseAction)
 	{
 		this->value = newValue;
 		this->tAction = trueAction;

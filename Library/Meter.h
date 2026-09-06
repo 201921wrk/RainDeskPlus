@@ -7,8 +7,7 @@
  * 对应 Rainmeter: Library/Meter.h（可视化元素基类，直接复用）。
  * 渲染接口用 Direct2D 的 ID2D1RenderTarget。
  */
-#ifndef RAINDOCK_LIBRARY_METER_H_
-#define RAINDOCK_LIBRARY_METER_H_
+#pragma once
 
 #include <cstdint>
 #include <string>
@@ -65,5 +64,3 @@ private:
 };
 
 }  // namespace raindock
-
-#endif  // RAINDOCK_LIBRARY_METER_H_

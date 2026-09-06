@@ -56,15 +56,17 @@ rainmeter-upstream/
 # 上游源码 staging 目录（分批提取源），入仓内容由批次提交：
 upstream-fills/
 
+# 本地静态分析/构建工具链（cppcheck 等），不入仓：
+tools/
+
 # ============ Duilib ============
 duilib/
 DuiLib/
 
 # ============ 编辑器 / OS ============
 .idea/
-.vscode/*
-!.vscode/extensions.json
-!.vscode/settings.json
+.vscode/
+.clangd
 *.swp
 *~.nib
 Thumbs.db
@@ -74,6 +76,7 @@ $RECYCLE.BIN/
 .DS_Store
 
 # ============ 临时/日志 ============
+logs/
 *.log
 *.tmp
 *.bak
