@@ -8,47 +8,59 @@
  */
 #include "Canvas.h"
 
+#include <mutex>
+
 namespace raindock {
 
 namespace {
 ID2D1Factory*       g_D2DFactory   = nullptr;
 IDWriteFactory*     g_WriteFactory = nullptr;
 IWICImagingFactory* g_WICFactory   = nullptr;
+
+// 三个工厂为进程级单例，getter 可能被多个线程（渲染线程 / 插件线程）并发首次
+// 调用；"检查 nullptr → 创建" 存在竞态：两个线程会各自创建一个工厂，其中一个
+// 指针被覆盖后永远泄漏（详见 D10 审查 #13）。用 once_flag 保证只执行一次。
+std::once_flag g_D2DFactoryOnce;
+std::once_flag g_WriteFactoryOnce;
+std::once_flag g_WICFactoryOnce;
 }  // namespace
 
 ID2D1Factory* Canvas::GetD2DFactory()
 {
-    if (!g_D2DFactory) {
+    std::call_once(g_D2DFactoryOnce, []()
+    {
         D2D1_FACTORY_OPTIONS opts = {};
         ::D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,
                             __uuidof(ID2D1Factory), &opts,
                             reinterpret_cast<void**>(&g_D2DFactory));
-    }
+    });
     return g_D2DFactory;
 }
 
 IDWriteFactory* Canvas::GetWriteFactory()
 {
-    if (!g_WriteFactory) {
+    std::call_once(g_WriteFactoryOnce, []()
+    {
         ::DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,
                               __uuidof(IDWriteFactory),
                               reinterpret_cast<IUnknown**>(&g_WriteFactory));
-    }
+    });
     return g_WriteFactory;
 }
 
 IWICImagingFactory* Canvas::GetWICFactory()
 {
-    if (!g_WICFactory) {
+    std::call_once(g_WICFactoryOnce, []()
+    {
         // WIC 需要 COM 初始化。在单线程场景下先初始化 COM；
         // 若已由调用方初始化（返回 S_FALSE）也属正常。
         HRESULT hrCo = ::CoInitializeEx(nullptr, COINIT_MULTITHREADED);
         if (FAILED(hrCo) && hrCo != RPC_E_CHANGED_MODE) {
-            return nullptr;
+            return;
         }
         ::CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER,
                            IID_PPV_ARGS(&g_WICFactory));
-    }
+    });
     return g_WICFactory;
 }
 

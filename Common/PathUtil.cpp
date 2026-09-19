@@ -3,6 +3,8 @@
 #include "StdAfx.h"
 #include "PathUtil.h"
 
+#include <vector>
+
 namespace PathUtil {
 
 bool IsSeparator(WCHAR ch)
@@ -104,19 +106,22 @@ void ExpandEnvironmentVariables(std::wstring& path, std::wstring::size_type star
 		path.find(L'%', pos + 2) != std::wstring::npos)
 	{
 		DWORD bufSize = 4096;
-		WCHAR* buffer = new WCHAR[bufSize];
+		// 用 RAII 容器承载可增长缓冲：path.replace / path.assign 抛出（如
+		// bad_alloc）时不会再泄漏，也省去手工 delete[] 与多处释放分支
+		// （详见 D10 审查 #24）。
+		std::vector<WCHAR> buffer(bufSize);
 
 		// %APPDATA% is a special case.
 		pos = path.find(L"%APPDATA%", pos);
 		if (pos != std::wstring::npos)
 		{
-			HRESULT hr = SHGetFolderPath(nullptr, CSIDL_APPDATA, nullptr, SHGFP_TYPE_CURRENT, buffer);
+			HRESULT hr = SHGetFolderPath(nullptr, CSIDL_APPDATA, nullptr, SHGFP_TYPE_CURRENT, buffer.data());
 			if (SUCCEEDED(hr))
 			{
-				size_t len = wcslen(buffer);
+				size_t len = wcslen(buffer.data());
 				do
 				{
-					path.replace(pos, 9, buffer, len);
+					path.replace(pos, 9, buffer.data(), len);
 				}
 				while ((pos = path.find(L"%APPDATA%", pos + len)) != std::wstring::npos);
 			}
@@ -128,27 +133,22 @@ void ExpandEnvironmentVariables(std::wstring& path, std::wstring::size_type star
 			// Expand the environment variables.
 			do
 			{
-				DWORD ret = ExpandEnvironmentStrings(path.c_str(), buffer, bufSize);
+				DWORD ret = ExpandEnvironmentStrings(path.c_str(), buffer.data(), bufSize);
 				if (ret == 0)  // Error
 				{
 					break;
 				}
 				if (ret <= bufSize)  // Fits in the buffer
 				{
-					path.assign(buffer, ret - 1);
+					path.assign(buffer.data(), ret - 1);
 					break;
 				}
 
-				delete [] buffer;
-				buffer = nullptr;
 				bufSize = ret;
-				buffer = new WCHAR[bufSize];
+				buffer.resize(bufSize);
 			}
 			while (true);
 		}
-
-		delete [] buffer;
-		buffer = nullptr;
 	}
 }
 

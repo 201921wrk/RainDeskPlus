@@ -19,6 +19,9 @@
  */
 #include "ConfigParser.h"
 
+#include "Logger.h"
+#include "PathUtil.h"
+
 #include <windows.h>
 
 #include <algorithm>
@@ -50,8 +53,29 @@ std::wstring FromUtf8(const std::string& s)
     return out;
 }
 
+std::string ToUtf8(const std::wstring& s)
+{
+    if (s.empty()) return {};
+    int n = ::WideCharToMultiByte(CP_UTF8, 0, s.data(), static_cast<int>(s.size()),
+                                  nullptr, 0, nullptr, nullptr);
+    if (n <= 0) return {};
+    std::string out(static_cast<size_t>(n), '\0');
+    ::WideCharToMultiByte(CP_UTF8, 0, s.data(), static_cast<int>(s.size()),
+                          out.data(), n, nullptr, nullptr);
+    return out;
+}
+
 // 单通道 ARGB -> [0,1] float（Rainmeter 的 ARGBHEX / RRGGBB / AARRGGBB 惯例）
 float ByteNorm(uint8_t b) { return static_cast<float>(b) / 255.0f; }
+
+// 读取整份文件为字节串（UTF-8/ANSI 混合内容由 FromUtf8 逐行还原）。
+bool ReadFileUtf8(const std::wstring& path, std::string& out)
+{
+    std::ifstream f(path, std::ios::binary);
+    if (!f) return false;
+    out.assign(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
+    return true;
+}
 
 bool ParseHexByte(const std::wstring& s, size_t off, uint8_t* out)
 {
@@ -78,23 +102,71 @@ bool ParseHexByte(const std::wstring& s, size_t off, uint8_t* out)
 
 bool ConfigParser::LoadFile(const std::wstring& path)
 {
-    std::ifstream f(path, std::ios::binary);
-    if (!f) return false;
-    std::string content((std::istreambuf_iterator<char>(f)),
-                         std::istreambuf_iterator<char>());
+    std::string content;
+    if (!ReadFileUtf8(path, content)) return false;
     LoadFromString(content);
+    // 主题合并：主文件声明 [Theme] Name= 时，把同目录 Themes\<名>.ini 并入为低优先级默认值。
+    ApplyThemeDefaults(path);
     return true;
+}
+
+// 主题合并（D26-30）：
+//   主文件解析完成后读取 [Theme] Name；若声明了主题，则加载同目录 Themes\<名>.ini，
+//   把其中的「段/键」按低优先级默认值并入：主文件已显式写出的键保持不变（主文件优先），
+//   主题文件只补主文件缺失的缺口。主题文件缺失时只告警降级，不影响主文件加载。
+void ConfigParser::ApplyThemeDefaults(const std::wstring& path)
+{
+    const std::wstring themeName = Trim(ReadString(L"Theme", L"Name", L""));
+    if (themeName.empty()) return;  // 未启用主题系统，静默返回。
+
+    const std::wstring themePath =
+        PathUtil::GetFolderFromFilePath(path) + L"Themes\\" + themeName + L".ini";
+
+    std::string themeContent;
+    if (!ReadFileUtf8(themePath, themeContent))
+    {
+        // 降级：主题文件缺失不阻断加载，主文件自身的兜底默认值继续生效。
+        LogWarningF(L"主题文件缺失，已按主文件默认值降级加载：%s", themePath.c_str());
+        return;
+    }
+
+    // 主题文件只做内存解析（LoadFromString），不走 LoadFile，天然规避「主题引用主题」的递归。
+    ConfigParser theme;
+    theme.LoadFromString(themeContent);
+
+    // 同类实例可直接访问私有成员，从而取到未经变量展开的原始值（与主文件解析口径一致）。
+    for (const std::wstring& section : theme.m_SectionOrder)
+    {
+        auto& destSection = m_Sections[section];
+        if (std::find(m_SectionOrder.begin(), m_SectionOrder.end(), section) == m_SectionOrder.end())
+        {
+            m_SectionOrder.push_back(section);
+        }
+
+        for (const auto& [key, value] : theme.m_Sections[section])
+        {
+            // 低优先级：emplace 仅在键缺失时插入，主文件已写出的键保持原值。
+            if (!destSection.emplace(key, value).second) continue;
+            if (section == L"Variables" && m_Variables.find(key) == m_Variables.end())
+            {
+                m_Variables[key] = value;
+            }
+        }
+    }
 }
 
 void ConfigParser::LoadFromString(const std::string& utf8Content)
 {
     m_Sections.clear();
     m_SectionOrder.clear();
+    m_KeyOrder.clear();
+    m_HeaderComments.clear();
     m_Variables.clear();
 
     std::istringstream ss(utf8Content);
     std::string lineUtf8;
     std::wstring current;
+    bool headerDone = false;   // 是否已越过首个段头（用于截取文件头注释块）
 
     while (std::getline(ss, lineUtf8))
     {
@@ -103,11 +175,17 @@ void ConfigParser::LoadFromString(const std::string& utf8Content)
 
         if (line.empty()) continue;
         // 注释：行首 ; 或 #
-        if (line[0] == L';' || line[0] == L'#') continue;
+        if (line[0] == L';' || line[0] == L'#')
+        {
+            // 首个段头之前的连续注释块即文件头注释，记入以便「读→改→写」不丢首行注释。
+            if (!headerDone) m_HeaderComments.push_back(line);
+            continue;
+        }
 
         if (line.front() == L'[' && line.back() == L']') {
             current = Trim(line.substr(1, line.size() - 2));
             if (current.empty()) continue;
+            headerDone = true;
             auto [it, inserted] = m_Sections.try_emplace(current);
             if (inserted) m_SectionOrder.push_back(current);
             continue;
@@ -119,8 +197,130 @@ void ConfigParser::LoadFromString(const std::string& utf8Content)
         if (key.empty() || current.empty()) continue;
         // Rainmeter 约定：段内重复键后者覆盖前者（允许 @Include 叠加）
         m_Sections[current][key] = val;
+        RegisterKeyOrder(current, key);
         if (current == L"Variables") m_Variables[key] = val;
     }
+}
+
+// -----------------------------------------------------------------------
+// 落盘与段/键删除（D31-35：统一 INI 持久化出口）
+// -----------------------------------------------------------------------
+
+// 段内键的落盘顺序单独记录：m_Sections 是 std::map（字典序），
+// 直接按它输出会把手写/生成文件的键序打乱，故另行登记插入顺序。
+void ConfigParser::RegisterKeyOrder(const std::wstring& section, const std::wstring& key)
+{
+    std::vector<std::wstring>& order = m_KeyOrder[section];
+    if (std::find(order.begin(), order.end(), key) == order.end())
+    {
+        order.push_back(key);
+    }
+}
+
+// 序列化口径（与既有生成的 Dock.ini / items.ini 字节格式保持一致）：
+//   - UTF-8 无 BOM、行尾 CRLF；
+//   - 首行注释块各自成行，紧随其后即为首个段头（不额外空行）；
+//   - 段按出现顺序，段之间空一行；段内键按插入顺序。
+bool ConfigParser::SaveFile(const std::wstring& path) const
+{
+    std::string out;
+    out.reserve(512 + m_Sections.size() * 128);
+
+    for (const std::wstring& line : m_HeaderComments)
+    {
+        out += ToUtf8(line);
+        out += "\r\n";
+    }
+
+    bool firstSection = true;
+    for (const std::wstring& section : m_SectionOrder)
+    {
+        auto sIt = m_Sections.find(section);
+        if (sIt == m_Sections.end()) continue;
+        if (!firstSection) out += "\r\n";
+        firstSection = false;
+
+        out += "[";
+        out += ToUtf8(section);
+        out += "]\r\n";
+
+        // 先按登记顺序输出；未登记顺序的键（异常路径）再按字典序补齐，保证不丢内容。
+        std::vector<std::wstring> written;
+        auto oIt = m_KeyOrder.find(section);
+        if (oIt != m_KeyOrder.end())
+        {
+            for (const std::wstring& key : oIt->second)
+            {
+                auto kIt = sIt->second.find(key);
+                if (kIt == sIt->second.end()) continue;
+                out += ToUtf8(key) + "=" + ToUtf8(kIt->second) + "\r\n";
+                written.push_back(key);
+            }
+        }
+        for (const auto& [key, value] : sIt->second)
+        {
+            if (std::find(written.begin(), written.end(), key) != written.end()) continue;
+            out += ToUtf8(key) + "=" + ToUtf8(value) + "\r\n";
+        }
+    }
+
+    std::ofstream f(path.c_str(), std::ios::binary | std::ios::trunc);
+    if (!f) return false;
+    f.write(out.data(), static_cast<std::streamsize>(out.size()));
+    return f.good();
+}
+
+// 与 LoadFile 的唯一差别：**不**做主题合并。
+// 「读→改→写」场景（!WriteKeyValue）若走 LoadFile，会把主题文件内容展开进主文件，
+// 覆盖 [Theme] Name= 声明本身，故必须走这条裸读路径。
+bool ConfigParser::LoadFileRaw(const std::wstring& path)
+{
+    std::string content;
+    if (!ReadFileUtf8(path, content)) return false;
+    LoadFromString(content);
+    return true;
+}
+
+void ConfigParser::SetHeaderComment(const std::wstring& comment)
+{
+    m_HeaderComments.clear();
+    const std::wstring line = Trim(comment);
+    if (!line.empty()) m_HeaderComments.push_back(line);
+}
+
+const std::wstring& ConfigParser::GetHeaderComment() const
+{
+    static const std::wstring kEmpty;
+    return m_HeaderComments.empty() ? kEmpty : m_HeaderComments.front();
+}
+
+bool ConfigParser::RemoveValue(const std::wstring& section, const std::wstring& key)
+{
+    auto sIt = m_Sections.find(section);
+    if (sIt == m_Sections.end() || sIt->second.erase(key) == 0) return false;
+
+    auto oIt = m_KeyOrder.find(section);
+    if (oIt != m_KeyOrder.end())
+    {
+        std::vector<std::wstring>& order = oIt->second;
+        order.erase(std::remove(order.begin(), order.end(), key), order.end());
+    }
+    if (section == L"Variables") m_Variables.erase(key);
+
+    // 键被删空后不留空段，否则落盘会写出无意义的 "[Section]" 头。
+    if (sIt->second.empty()) RemoveSection(section);
+    return true;
+}
+
+bool ConfigParser::RemoveSection(const std::wstring& section)
+{
+    if (m_Sections.erase(section) == 0) return false;
+
+    m_SectionOrder.erase(std::remove(m_SectionOrder.begin(), m_SectionOrder.end(), section),
+                         m_SectionOrder.end());
+    m_KeyOrder.erase(section);
+    if (section == L"Variables") m_Variables.clear();
+    return true;
 }
 
 // -----------------------------------------------------------------------
@@ -179,6 +379,7 @@ void ConfigParser::SetVariable(const std::wstring& name, const std::wstring& val
 {
     m_Variables[name] = value;
     m_Sections[L"Variables"][name] = value;
+    RegisterKeyOrder(L"Variables", name);
 }
 
 void ConfigParser::SetValue(const std::wstring& section,
@@ -189,6 +390,7 @@ void ConfigParser::SetValue(const std::wstring& section,
         m_Variables[key] = value;
     }
     m_Sections[section][key] = value;
+    RegisterKeyOrder(section, key);
     auto it = std::find(m_SectionOrder.begin(), m_SectionOrder.end(), section);
     if (it == m_SectionOrder.end()) m_SectionOrder.push_back(section);
 }

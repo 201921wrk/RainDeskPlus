@@ -1,13 +1,17 @@
-// RainDeskPlus - Minimal Logger implementation for Batch-2 compile.
-// The upstream rainmeter/rainmeter Logger.cpp references DialogDebug / Util /
-// System / resource.h / GetFormattedString / ShowMessage etc. which are
-// intentionally NOT part of Batch-2. This file replaces that with a tiny
-// OutputDebugString + in-memory ring implementation, enough for the 8 LogVF /
-// LogSectionVF / LogMeasureVF / LogSkinVF overloads referenced by Section /
-// IfActions / Mouse / Group.
-//
-// Runtime fidelity (file log, Rainmeter tray debug dialog) will be upgraded in
-// Batch-3 (ConfigParser full) / Batch-6 (plugins) when we pull those modules.
+/*
+ * RainDeskPlus - Desktop beautification platform
+ * Derived from Rainmeter - GPL v2
+ * Copyright (C) 2014-2025 Rainmeter Project
+ * Copyright (C) 2026 RainDeskPlus Project
+ *
+ * 对应 Rainmeter: Library/Logger.cpp（最小实现）。
+ * 上游 Logger.cpp 依赖 DialogDebug / Util / System / resource.h /
+ * GetFormattedString / ShowMessage 等模块，这些不在当前提取范围内；本文件以
+ * OutputDebugString + 内存环形缓冲替代，满足 Section / IfActions / Mouse /
+ * Group 引用的 8 个 LogVF / LogSectionVF / LogMeasureVF / LogSkinVF 重载。
+ *
+ * 完整的文件日志与托盘调试窗口在后续批次（ConfigParser 全量 / 插件）接入。
+ */
 
 #include "StdAfx.h"
 #include "Logger.h"
@@ -30,8 +34,11 @@ void VAppendFormat(std::wstring& out, const WCHAR* fmt, va_list args) {
     int len = _vscwprintf(fmt, argsCopy);
     va_end(argsCopy);
     if (len <= 0) return;
-    out.resize(static_cast<size_t>(len));
-    vswprintf_s(out.data(), static_cast<size_t>(len) + 1, fmt, args);
+    // _vscwprintf 返回的 len 不含终止符。用 len+1 的独立缓冲承载格式化结果，
+    // 不再依赖 `data()[size()]` 是否可写的实现细节（详见 D10 审查 #10）。
+    std::wstring buf(static_cast<size_t>(len) + 1, L'\0');
+    vswprintf_s(buf.data(), buf.size(), fmt, args);
+    out.assign(buf.c_str(), static_cast<size_t>(len));
 }
 
 std::wstring LevelSuffix(Logger::Level l) {
@@ -80,8 +87,13 @@ void Logger::LogInternal(Level lvl, std::chrono::system_clock::time_point, const
     e.timestamp = TimestampNow();
     e.source = src ? src : L"";
     e.message = msg ? msg : L"";
-    if (m_Entries.size() >= kMaxEntries) m_Entries.pop_front();
-    m_Entries.push_back(e);
+    // 环形缓冲的裁剪与写入必须整体加锁：Logger 可能被多个线程（定时器/插件）
+    // 同时写入（详见 D10 审查 #9）。锁只覆盖容器操作，EmitODS 在锁外执行。
+    {
+        CriticalSectionLock lock(m_CsLog);
+        if (m_Entries.size() >= kMaxEntries) m_Entries.pop_front();
+        m_Entries.push_back(e);
+    }
 
     std::wstring line = e.timestamp + LevelSuffix(lvl);
     if (!e.source.empty()) { line.append(L"[").append(e.source).append(L"] "); }

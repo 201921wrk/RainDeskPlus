@@ -3,8 +3,12 @@
 #pragma once
 
 #include <windows.h>
+#include <memory>
 #include <string>
 #include <vector>
+
+// IfMatch 的正则缓存持有 Pcre 实例（仅指针，故此处前置声明即可）。
+class Pcre;
 
 // RainDeskPlus adapter: ConfigParser / Measure / Skin are defined inside
 // `namespace raindock` (M4/M5 skeleton), but verbatim upstream TUs reference
@@ -79,4 +83,16 @@ private:
 
 	std::vector<IfState> m_Matches;
 	bool m_MatchMode;
+
+	// IfMatch 正则编译缓存（D36-40 性能项 #1）：pcre16_compile 属于重量级操作，
+	// 原实现每个更新周期都要对同一个表达式重新编译。此缓存与 m_Matches 同索引，
+	// 仅在表达式文本发生变化（如 !Refresh 重读配置）时才重新编译。
+	// 注意：此处只持有 Pcre 指针，故头文件保持前置声明即可；实际析构发生在 .cpp。
+	struct MatchRegexCache
+	{
+		std::wstring pattern;				// 上次编译使用的表达式，用于脏检查
+		std::unique_ptr<Pcre> re;			// 编译产物；非空表示「已尝试编译」（其内部可能为空 = 编译失败）
+		std::string error;					// 编译失败时的错误描述，供 LogErrorF 复用
+	};
+	std::vector<MatchRegexCache> m_MatchRegex;
 };

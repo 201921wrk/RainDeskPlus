@@ -25,6 +25,7 @@
 #include <ws2ipdef.h>   // 定义 _WS2IPDEF_：netioapi.h 的 MIB_IF_ROW2/GetIfTable2 由该宏解锁
 #include <iphlpapi.h>
 
+#include <algorithm> // std::all_of
 #include <cwctype>   // std::iswdigit
 #include <vector>
 
@@ -78,17 +79,23 @@ void MeasureNet::ReadOptions(ConfigParser& parser, std::wstring_view section)
     m_Cumulative    = parser.ReadBool(section, L"Cumulative", m_Cumulative);
     m_InterfaceName = parser.ReadString(section, L"Interface", m_InterfaceName);
 
-    // 解析 Interface=：Best（默认）/ Total / 数字（dwIndex）
+    // 解析 Interface=：Best（默认）/ Total / 数字（dwIndex）。
+    // 旧实现用 _wtoi 直接解析，形如 "3abc" 的畸形值会被静默当作索引 3；
+    // 这里要求整串均为数字，其余取值（含尚未支持的网络接口名）显式回退
+    // Best，避免把非法配置当成有效索引（详见 D10 审查 #23）。
     m_IfaceMode = IfaceMode::Best;
     m_IfaceIndex = -1;
-    if (_wcsicmp(m_InterfaceName.c_str(), L"Total") == 0) {
+    if (_wcsicmp(m_InterfaceName.c_str(), L"Total") == 0)
+    {
         m_IfaceMode = IfaceMode::Total;
-    } else if (!m_InterfaceName.empty() && !std::iswdigit(m_InterfaceName[0])) {
-        // 非 Best/Total/数字：保留 Best（按名匹配留 M3 接入 WMI 后实现）
-        m_IfaceMode = IfaceMode::Best;
-    } else if (!m_InterfaceName.empty()) {
-        const int idx = _wtoi(m_InterfaceName.c_str());
-        if (idx > 0) {
+    }
+    else if (!m_InterfaceName.empty() && _wcsicmp(m_InterfaceName.c_str(), L"Best") != 0)
+    {
+        const bool allDigits = std::all_of(m_InterfaceName.begin(), m_InterfaceName.end(),
+            [](wchar_t c) { return std::iswdigit(c) != 0; });
+        const int idx = allDigits ? _wtoi(m_InterfaceName.c_str()) : 0;
+        if (idx > 0)
+        {
             m_IfaceMode  = IfaceMode::Index;
             m_IfaceIndex = idx;
         }

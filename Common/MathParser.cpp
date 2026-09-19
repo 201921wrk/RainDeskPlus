@@ -281,7 +281,9 @@ const WCHAR* MathParser::CheckedParse(std::wstring_view formula, double* result)
 
 const WCHAR* MathParser::Parse(std::wstring_view formula, double* result, ParseMode mode, const WCHAR** parseEnd) const
 {
-	static WCHAR errorBuffer[128];
+	// 返回给调用方的错误消息缓冲。用 thread_local 替代普通 static：普通 static
+	// 在多线程下会被并发覆写，导致返回的指针内容错乱（详见 D10 审查 #12）。
+	static thread_local WCHAR errorBuffer[128];
 	if (parseEnd) *parseEnd = formula.data();
 	if (mode == ParseMode::MatchingClosingBracket)
 	{

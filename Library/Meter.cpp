@@ -35,13 +35,20 @@ void Meter::Initialize(ConfigParser& parser, Measure* measure)
     m_X = parser.ReadInt(m_Name, L"X", 0);
     m_Y = parser.ReadInt(m_Name, L"Y", 0);
     m_Hidden = parser.ReadBool(m_Name, L"Hidden", false);
-    GetMouse().ReadOptions(parser, m_Name);
+
+    // 无 Skin 的独立 Meter（M3 Smoke 直构 MeterString，验证 INI→Measure→Meter 全链路）
+    // 没有皮肤级鼠标设置可继承。上游 Mouse::ReadOptions 会无条件解引用 m_Skin
+    // （如 m_Skin->GetMouse().GetCursorState()），在 Skin* == nullptr 时触发
+    // 空指针访问 0xC0000005（D16 回归定位）。与 Section::GetDefaultUpdateDivider
+    // 的空 Skin 处理保持一致。
+    if (m_Skin) GetMouse().ReadOptions(parser, m_Name);
 }
 
 void Meter::Update()
 {
-    // 触发绑定的 Measure 刷新；具体皮肤驱动里在 Update 周期统一调用。
-    if (m_Measure) m_Measure->Update();
+    // Measure 的刷新由 Skin::Update() 单点驱动（先遍历 Measure 再遍历 Meter）。
+    // 此处不得再调用 m_Measure->Update()，否则同一次 Update 周期内 Measure 被
+    // 驱动两次，UpdateDivider 实际减半（详见 D10 审查 #4）。
 }
 
 }  // namespace raindock

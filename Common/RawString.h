@@ -141,7 +141,34 @@ private:
 
 	void assign(const wchar_t* str, size_t length)
 	{
-		if (m_String && str == m_String && length == wcslen(m_String)) return;
+		if (!str)
+		{
+			clear();
+			return;
+		}
+
+		// 判断 str 是否指向自身缓冲区（自引用）。旧代码仅在「同指针且同长度」
+		// 时提前返回，其余自引用场景下 realloc 一旦搬迁，str 立即悬垂、wmemcpy
+		// 会读取已释放内存（详见 D10 审查 #11）。
+		const size_t oldLength = m_String ? wcslen(m_String) : 0;
+		const bool selfReference =
+			m_String && str >= m_String && str <= m_String + oldLength;
+
+		if (selfReference)
+		{
+			if (length == oldLength) return;
+			// 先把源数据落到临时缓冲，再重新分配，避免读取被 realloc 释放的内存。
+			const std::wstring tmp(str, length);
+			const size_t size = (length + 1) * sizeof(wchar_t);
+			wchar_t* buffer = (wchar_t*)realloc(m_String, size);
+			if (buffer)
+			{
+				m_String = buffer;
+				wmemcpy(m_String, tmp.c_str(), length);
+				m_String[length] = L'\0';
+			}
+			return;
+		}
 
 		const size_t size = (length + 1) * sizeof(wchar_t);
 		wchar_t* buffer = (wchar_t*)realloc(m_String, size);

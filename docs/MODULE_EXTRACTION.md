@@ -119,7 +119,11 @@ git clone https://github.com/rainmeter/rainmeter.git rainmeter-upstream
     4. **Meter 家族**：MeterImage/Bar/Line/RoundLine/Shape——ReadOptions/尺寸逻辑照抄上游，Draw 用本项目 D2D Canvas 重写（上游 GDI+ 渲染栈不拷）
     5. **Measure 家族轻量批**：DiskSpace/Registry/Uptime/Calc/Loop/Quote/UsageMonitor/PhysicalMemory/VirtualMemory
     6. **重量项**：WebParser(PCRE)/Script(Lua)/Plugin 生态
-- [ ] M5：`CRainmeter` + `CommandHandler`，Bang 命令切换皮肤成功。
+- [x] **M5（2026-09-06，vs2026-x64 Debug，0 error / 0 warning；3 套 Smoke 全过）**
+  - `CRainmeter` 补齐生命周期缺口：`ActivateSkin` 加载成功即调用 `Skin::Show(SW_SHOWNOACTIVATE)` 显示挂件窗口（窗口/渲染目标创建失败时静默降级，皮肤仍登记，`!Hide/!Show/!Toggle` 按有无窗口做 no-op）；同名 config 重复激活先停用旧皮肤，避免窗口/句柄泄漏。
+  - `Initialize` 自动定位 `Skins/` 根目录：未显式 `SetSkinRootPath` 时，从 exe 目录逐级向上（最多 5 级）探测名为 `Skins` 的目录并 `Refresh` `SkinRegistry`；后续 `!ActivateConfig` 无需手动设置根路径。
+  - `ExecuteActionCommand(::Section*)` 恢复皮肤上下文：`Section::GetSkin()` 经 `using raindock::Skin` 别名直接返回 `raindock::Skin*`，不再传 `nullptr`，Bang 可正确作用到所属皮肤。
+  - 验证：`RainDeskPlusBangTest` **ALL TESTS PASSED**（单例初始化 / 皮肤激活 / Bang 分发 / SetVariable/SetOption / 多皮肤 / ActivateConfig/DeactivateConfig 全链路），`RenderTest`、`SkinTest` 同步回归通过。
 
 ## 8. 上游核心模块盘点清单（2026-08-29 对照 `rainmeter-upstream/` HEAD `abd0b5a`）
 

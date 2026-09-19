@@ -36,7 +36,7 @@ public:
     virtual ~Meter();
 
     virtual void Initialize(ConfigParser& parser, Measure* measure);
-    virtual void Update();   // 刷新绑定的 Measure
+    virtual void Update();   // 每个 Update 周期的 Meter 钩子（基类为空实现；Measure 由 Skin::Update 驱动）
     virtual void Draw(ID2D1RenderTarget* rt) = 0;   // 子类实现渲染
 
     int GetX() const { return m_X; }

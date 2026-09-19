@@ -20,7 +20,8 @@ IfActions::IfActions() :
 	m_Conditions(),
 	m_ConditionMode(false),
 	m_Matches(),
-	m_MatchMode(false)
+	m_MatchMode(false),
+	m_MatchRegex()
 {
 }
 
@@ -126,11 +127,13 @@ void IfActions::ReadConditionOptions(ConfigParser& parser, std::wstring_view sec
 		else
 		{
 			m_Matches.clear();
+			m_MatchRegex.clear();
 		}
 	}
 	else
 	{
 		m_Matches.clear();
+		m_MatchRegex.clear();
 	}
 }
 
@@ -246,20 +249,40 @@ void IfActions::DoIfActions(Measure& measure, double value)
 		++i;
 		if (!item.value.empty() && (!item.tAction.empty() || !item.fAction.empty()))
 		{
-			const char* error;
+			// 正则编译缓存（D36-40 性能项 #1）：表达式未变化时直接复用已编译的 Pcre，
+			// 避免每个更新周期重复执行重量级的 pcre16_compile。
+			const size_t index = static_cast<size_t>(i - 1);
+			if (m_MatchRegex.size() <= index)
+			{
+				m_MatchRegex.resize(index + 1);
+			}
 
-			Pcre re(item.value.c_str(), &error);
-			if (!re)
+			MatchRegexCache& cache = m_MatchRegex[index];
+			if (cache.pattern != item.value)
+			{
+				cache.pattern = item.value;
+				cache.re.reset();
+				cache.error.clear();
+			}
+
+			if (!cache.re)
+			{
+				const char* error = nullptr;
+				cache.re = std::make_unique<Pcre>(item.value.c_str(), &error);
+				cache.error = error ? error : "";
+			}
+
+			if (!cache.re || !static_cast<bool>(*cache.re))
 			{
 				if (!item.parseError)
 				{
 					if (i == 1)
 					{
-						LogErrorF(&measure, L"Error: \"%S\" in IfMatch=%s", error, item.value.c_str());
+						LogErrorF(&measure, L"Error: \"%S\" in IfMatch=%s", cache.error.c_str(), item.value.c_str());
 					}
 					else
 					{
-						LogErrorF(&measure, L"Error: \"%S\" in IfMatch%i=%s", error, i, item.value.c_str());
+						LogErrorF(&measure, L"Error: \"%S\" in IfMatch%i=%s", cache.error.c_str(), i, item.value.c_str());
 					}
 
 					item.parseError = true;
@@ -272,7 +295,7 @@ void IfActions::DoIfActions(Measure& measure, double value)
 				const WCHAR* value = measure.GetStringValue();
 				std::wstring_view str = value ? value : L"";
 				int ovector[300];
-				int rc = re.Execute(str, 0, ovector, static_cast<int>(_countof(ovector)));
+				int rc = cache.re->Execute(str, 0, ovector, static_cast<int>(_countof(ovector)));
 				if (rc > 0)		// Match
 				{
 					item.fCommitted = false;

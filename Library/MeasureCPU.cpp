@@ -56,16 +56,13 @@ void MeasureCPU::ReadOptions(ConfigParser& parser, std::wstring_view section)
     Measure::ReadOptions(parser, section);
 
     // Rainmeter 约定 Processor=0 表示「整机 Total」，Processor>=1 表示核号（1-based）。
+    // M1 不支持单核采样（UpdateValue 会降级为整机读数），因此 proc>0 时
+    // TotalProcessor= 的取值不会改变任何行为；原实现保留了 if/else 两个完全等价
+    // 的分支（详见 D10 审查 #25），这里收敛为单一赋值。
     int proc = parser.ReadInt(section, L"Processor", 0);
     if (proc < 0) proc = 0;
-    if (proc == 0 || !parser.ReadBool(section, L"TotalProcessor", m_TotalProcessors)) {
-        m_TotalProcessors = (proc == 0);
-        m_ProcessorIndex = proc;
-    } else {
-        // 用户显式指定了 Processor=N>0，但 M1 不支持单核：保留字段但实际会在采样时降级为 Total。
-        m_TotalProcessors = false;
-        m_ProcessorIndex = proc;
-    }
+    m_TotalProcessors = (proc == 0);
+    m_ProcessorIndex = proc;
 }
 
 void MeasureCPU::Initialize(ConfigParser& parser, const std::wstring& iniPath)

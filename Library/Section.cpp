@@ -52,8 +52,12 @@ bool Section::UpdateCounter()
 
 void Section::DoUpdateAction()
 {
-	if (!m_OnUpdateAction.empty())
-	{
-		GetRainmeter().ExecuteActionCommand(m_OnUpdateAction.c_str(), this);
-	}
+	if (m_OnUpdateAction.empty() || m_InUpdateAction) return;
+
+	// OnUpdateAction 里的 !Redraw/!Refresh 会在同一调用栈内重新进入
+	// Update() → DoUpdateAction()，形成无保护的无限递归（详见 D10 审查 #3）。
+	// 这里以重入守卫截断二次进入，执行结束后立即复位。
+	m_InUpdateAction = true;
+	GetRainmeter().ExecuteActionCommand(m_OnUpdateAction.c_str(), this);
+	m_InUpdateAction = false;
 }

@@ -63,7 +63,13 @@ public:
 
 	const std::wstring& GetLogFilePath() const { return m_LogFilePath; }
 
-	const std::list<Entry>& GetEntries() const { return m_Entries; }
+	// 返回副本：m_Entries 由 m_CsLog 保护，若返回引用则锁在返回后即失效、读端
+	// 仍会与写端竞争（详见 D10 审查 #9）。
+	std::list<Entry> GetEntries() const
+	{
+		CriticalSectionLock lock(m_CsLog);
+		return m_Entries;
+	}
 
 private:
 	void LogInternal(Level level, std::chrono::system_clock::time_point timestamp, const WCHAR* source, const WCHAR* msg);
@@ -80,7 +86,8 @@ private:
 
 	std::list<Entry> m_Entries;
 
-	CriticalSection m_CsLog;
+	// mutable：GetEntries() 是 const 成员，但仍需加锁保护读操作。
+	mutable CriticalSection m_CsLog;
 	CriticalSection m_CsLogDelay;
 };
 

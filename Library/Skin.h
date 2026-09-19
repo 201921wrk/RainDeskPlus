@@ -68,8 +68,13 @@ public:
 
     HWND GetWindow() const { return m_Window; }
     void SetWindow(HWND hWnd) { m_Window = hWnd; }
-    // WM_TIMER 驱动下已成功呈现的帧数（Smoke 断言用）。
+    // WM_TIMER 驱动的帧迭代次数（含因画面无变化而跳过重绘的帧；Smoke 断言用）。
+    // 实际执行 Clear+Render 的次数见 GetRenderCount()。
     uint32_t GetFrameCount() const { return m_Frames; }
+    // D36-40 性能项 #2：实际执行 Clear+Render 的帧数。
+    uint32_t GetRenderCount() const { return m_RenderPasses; }
+    // D36-40 性能项 #2：因视觉状态未变化而跳过 Clear+Render 的帧数。
+    uint32_t GetSkippedRenderCount() const { return m_SkippedRenders; }
 
     const std::vector<std::unique_ptr<Measure>>& GetMeasures() const { return m_Measures; }
     const std::vector<std::unique_ptr<Meter>>&   GetMeters()  const { return m_Meters; }
@@ -105,6 +110,9 @@ private:
     bool CreateWindowAndTarget(int nCmdShow);
     // 更新 + 本帧渲染到窗口渲染目标（成功 EndDraw 才计帧）。
     void RenderFrame();
+    // D36-40 性能项 #2：视觉状态指纹（Measure 数值/字符串 + Meter 几何与可见性）。
+    // 指纹未变化时跳过 Clear+Render，避免无谓的绘制开销。
+    uint64_t ComputeVisualFingerprint();
 
     // ===== B3 鼠标派发 =====
     // 命中测试：返回坐标 (x,y) 下的第一个可见 Meter（客户区坐标）。
@@ -136,6 +144,17 @@ private:
     // ===== B3 鼠标派发状态 =====
     Meter*                  m_MouseOverMeter = nullptr;   // 当前悬停的 Meter（不拥有）
     bool                    m_TrackingMouseLeave = false; // 是否已调用 TrackMouseEvent(TME_LEAVE)
+    // 渲染重入守卫：动作 Bang（!Redraw）会在 RenderFrame 的同一次调用栈内再次
+    // 进入 RenderFrame，导致这对 BeginDraw/EndDraw 嵌套并使 Update 链无限递归。
+    bool                    m_InRenderFrame = false;
+
+    // ===== D36-40 性能项 #2：脏检查 =====
+    // m_Dirty 为 true 表示「下一帧必须重绘」；Load/!Redraw/DoBang/Show 会强制置位。
+    // 否则当视觉指纹与上一帧相同时跳过 Clear+Render（Measure 采样仍然照常推进）。
+    bool                    m_Dirty = true;
+    uint64_t                m_LastFingerprint = 0;
+    uint32_t                m_RenderPasses = 0;    // 实际 Clear+Render 次数
+    uint32_t                m_SkippedRenders = 0;  // 跳过重绘次数
 };
 
 }  // namespace raindock

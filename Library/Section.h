@@ -61,5 +61,9 @@ protected:
 
 	std::wstring m_OnUpdateAction;
 
+	// OnUpdateAction 的重入守卫：执行动作命令期间若再次进入 DoUpdateAction()
+	// 会形成无保护的递归（详见 D10 审查 #3）。
+	bool m_InUpdateAction = false;
+
 	Skin* m_Skin;
 };

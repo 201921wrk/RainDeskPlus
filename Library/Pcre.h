@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string_view>
 
 #include "../ThirdParty/pcre/config.h"
@@ -22,9 +23,15 @@ public:
 	Pcre(const Pcre&) = delete;
 	Pcre& operator=(const Pcre&) = delete;
 
+	// 累计 pcre16_compile 调用次数（进程级）。编译是重量级操作，这个计数是
+	// D36-40 集成测试的确定性锚点：断言「N 个更新周期只编译一次」。
+	static uint64_t GetCompileCount() { return s_CompileCount; }
+	static void ResetCompileCount() { s_CompileCount = 0; }
+
 	void Compile(const WCHAR* pattern, const char** error)
 	{
 		Reset();
+		++s_CompileCount;
 		m_Pcre = pcre16_compile(reinterpret_cast<PCRE_SPTR16>(pattern), 0, error, &m_ErrorOffset, nullptr);
 	}
 
@@ -50,4 +57,7 @@ private:
 	pcre16* m_Pcre;
 	int m_ErrorOffset;
 	int m_Offset;
+
+	// inline static（C++17）：Pcre 是纯头文件类，避免为此单独引入一个 .cpp。
+	inline static uint64_t s_CompileCount = 0;
 };

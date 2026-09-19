@@ -77,26 +77,30 @@ void MeasureMemory::UpdateValue()
     const unsigned long long availAll  = availPhys + availPage;
     const unsigned long long usedAll   = (totalAll > availAll) ? (totalAll - availAll) : 0ULL;
 
-    m_MaxValue = static_cast<double>(totalAll);
-
     if (m_Total) {
+        m_MaxValue = static_cast<double>(totalAll);
         m_Value = static_cast<double>(totalAll);
         return;
     }
     switch (m_Mode) {
     case Mode::TotalBytes:
+        m_MaxValue = static_cast<double>(totalAll);
         m_Value = static_cast<double>(totalAll);
         break;
     case Mode::UsedBytes:
+        m_MaxValue = static_cast<double>(totalAll);
         m_Value = static_cast<double>(usedAll);
         break;
     case Mode::FreeBytes:
+        m_MaxValue = static_cast<double>(totalAll);
         m_Value = static_cast<double>(availAll);
         break;
     case Mode::UsedPercent:
     default:
-        // dwMemoryLoad 是系统给的百分比（0-100），恒定满刻度 100；
-        // m_MaxValue 此时是内存总量（字节，供 Bar 相对显示），与百分比无关，不参与缩放。
+        // dwMemoryLoad 是系统给出的百分比（0-100），故 MaxValue 必须同为 100；
+        // 否则 Bar/Meter 会拿「字节总量」当分母做相对刻度，导致条永远贴满
+        // （详见 D10 审查 #8）。
+        m_MaxValue = 100.0;
         m_Value = static_cast<double>(stat.dwMemoryLoad);
         break;
     }

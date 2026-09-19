@@ -62,6 +62,10 @@ public:
     // 当前字符串值（用于 [MeasureName] 段变量 & MeterString）。会应用 Substitute。
     virtual const wchar_t* GetString();
 
+    // 执行 Measure 自定义命令（上游 CommandHandler 的 !CommandMeasure 落点）。
+    // 默认 no-op：多数 Measure 是纯数据源，无可执行命令。
+    virtual void Command(const std::wstring& command);
+
     // ===== Batch-2 upstream compatibility =====
     // Upstream IfActions::DoIfActions() calls `measure.GetStringValue()`.
     // Alias kept because local skeleton provides GetString() / upstream

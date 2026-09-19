@@ -38,6 +38,9 @@ private:
     double       m_TimeStamp = 0.0; // 若 >0：用固定 Unix 时间戳采样
     bool         m_UseDaylightSaving = true;     // DaylightSavingTime=0 则强制不考虑夏令时偏移
     int          m_TimeZoneBiasMinutes = 0;      // TimeZone=（分钟数相对 UTC，正=东）。0=按系统默认
+
+    // GetString 的惰性补采样只允许发生一次（详见 D10 审查 #18）。
+    bool         m_LazySampled = false;
 };
 
 }  // namespace raindock

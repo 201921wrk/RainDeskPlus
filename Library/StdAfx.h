@@ -1,15 +1,19 @@
-// RainDeskPlus - Batch-2 upstream TUs compatibility layer.
-// This file is included FIRST by every upstream .cpp (Section, IfActions,
-// Group, Mouse, Logger, …) copied from rainmeter-upstream into beautiful_app.
-//
-// Strategy: instead of rewriting 200+ call sites in upstream sources to use
-// `raindock::` qualified names, we pull the full local library + common into
-// the global namespace via `using namespace raindock;` after including the
-// local headers. This matches the upstream convention (bare ConfigParser /
-// Skin / Measure / Meter / StringParser / MathParser / CRainmeter / …).
-//
-// M4/M5 core files are NEVER overwritten; this StdAfx.h is brand-new and not
-// on the 44-file SKIP list.
+/*
+ * RainDeskPlus - Desktop beautification platform
+ * Derived from Rainmeter - GPL v2
+ * Copyright (C) 2014-2025 Rainmeter Project
+ * Copyright (C) 2026 RainDeskPlus Project
+ *
+ * 上游 TU 兼容层：本文件被每个从 rainmeter-upstream 拷贝进来的 .cpp
+ * （Section / IfActions / Group / Mouse / Logger …）作为第一个头文件包含。
+ *
+ * 策略：不重写上游 200+ 处调用点为 `raindock::` 限定名，而是在包含本地头文件后
+ * 用 `using namespace raindock;` 把本地 library + common 引入全局命名空间，
+ * 与上游约定保持一致（裸用 ConfigParser / Skin / Measure / Meter /
+ * StringParser / MathParser / CRainmeter / …）。
+ *
+ * M4/M5 核心文件永不被覆盖；本 StdAfx.h 为新增文件，不在 44 文件 SKIP 列表内。
+ */
 
 #pragma once
 

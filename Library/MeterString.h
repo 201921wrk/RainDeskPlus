@@ -32,6 +32,7 @@ public:
 
     // 更新文本（文本变化时自动重建 TextLayout）。
     void SetText(const std::wstring& text);
+    void SetText(std::wstring&& text);
     const std::wstring& GetText() const { return m_Text; }
 
     // 文本度量尺寸（AutoSize 语义，由 DirectWrite metrics 决定）。
@@ -51,6 +52,9 @@ private:
     DWRITE_TEXT_ALIGNMENT m_AlignH = DWRITE_TEXT_ALIGNMENT_LEADING;
 
     IDWriteTextLayout*    m_TextLayout = nullptr;
+    // TextFormat 只与 FontFace/FontSize 相关，跨帧复用（详见 D10 审查 #17）；
+    // TextLayout 持有其引用，故生命周期与 meter 等长。
+    IDWriteTextFormat*    m_TextFormat = nullptr;
     // Brush 与渲染目标绑定：rt 变化时重建（COM 引用持有 rt，保证比较/使用安全）。
     ID2D1SolidColorBrush* m_Brush = nullptr;
     ID2D1RenderTarget*    m_BrushRT = nullptr;

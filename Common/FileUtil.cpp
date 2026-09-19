@@ -25,9 +25,29 @@ std::unique_ptr<BYTE[]> ReadFullFile(const std::wstring& path, size_t* size)
 		return nullptr;
 	}
 
-	fseek(file, 0L, SEEK_END);
-	size_t fileSize = ftell(file);
-	fseek(file, 0L, SEEK_SET);
+	// 定位到文件末尾取长度。fseek/ftell 的返回值必须检查：ftell 失败返回 -1L，
+	// 若直接赋给 size_t 会变成 SIZE_MAX，随后 fileSize + 3 回绕、缓冲区越界写
+	// （详见 D10 审查 #6）。
+	if (fseek(file, 0L, SEEK_END) != 0)
+	{
+		fclose(file);
+		return nullptr;
+	}
+
+	const long fileLength = ftell(file);
+	if (fileLength < 0)
+	{
+		fclose(file);
+		return nullptr;
+	}
+
+	if (fseek(file, 0L, SEEK_SET) != 0)
+	{
+		fclose(file);
+		return nullptr;
+	}
+
+	const size_t fileSize = static_cast<size_t>(fileLength);
 
 	std::unique_ptr<BYTE[]> buffer(new (std::nothrow) BYTE[fileSize + 3]);
 	if (buffer)

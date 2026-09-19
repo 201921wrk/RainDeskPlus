@@ -14,6 +14,8 @@
  */
 #include "Skin.h"
 
+#include <cstring>
+
 #include <d2d1.h>
 #include <d2d1helper.h>
 
@@ -22,10 +24,17 @@
 #include "Measure.h"
 #include "Meter.h"
 #include "MeasureTime.h"
+#include "MeasureCalendar.h"
 #include "MeasureCPU.h"
 #include "MeasureMemory.h"
 #include "MeasureNet.h"
+#include "MeasureDisk.h"
+#include "MeasureWeather.h"
+#include "MeasureMedia.h"
+#include "MeasureAudio.h"
 #include "MeterString.h"
+#include "MeterBar.h"
+#include "MeterLine.h"
 
 // Batch-2 adapters: need full types of MathParser (stack allocator & Parse)
 // and ::Mouse (constructor signature Mouse(Skin*, Meter*)).  Included here
@@ -48,16 +57,23 @@ const D2D1_COLOR_F kBackgroundColor = {0.07f, 0.07f, 0.09f, 1.0f};
 std::unique_ptr<Measure> CreateMeasure(const std::wstring& type, Skin* skin, const std::wstring& name)
 {
     if (type == L"Time")   return std::make_unique<MeasureTime>(skin, name.c_str());
+    if (type == L"Calendar") return std::make_unique<MeasureCalendar>(skin, name.c_str());
     if (type == L"CPU")    return std::make_unique<MeasureCPU>(skin, name.c_str());
     if (type == L"Memory") return std::make_unique<MeasureMemory>(skin, name.c_str());
     if (type == L"Net")    return std::make_unique<MeasureNet>(skin, name.c_str());
+    if (type == L"Disk")   return std::make_unique<MeasureDisk>(skin, name.c_str());
+    if (type == L"Weather") return std::make_unique<MeasureWeather>(skin, name.c_str());
+    if (type == L"Media")  return std::make_unique<MeasureMedia>(skin, name.c_str());
+    if (type == L"Audio")  return std::make_unique<MeasureAudio>(skin, name.c_str());
     return nullptr;   // Plugin/RSS/Registry 等：M5+ 按需接入
 }
 
 std::unique_ptr<Meter> CreateMeter(const std::wstring& type, Skin* skin, const WCHAR* name)
 {
     if (type == L"String") return std::make_unique<MeterString>(skin, name);
-    return nullptr;   // Image/Bar/Line/Roundline：M5+ 接入
+    if (type == L"Bar")    return std::make_unique<MeterBar>(skin, name);
+    if (type == L"Line")   return std::make_unique<MeterLine>(skin, name);
+    return nullptr;   // Image/Roundline/Histogram：M5+ 接入
 }
 
 // Win32 鼠标消息 → 上游 ::Mouse 的 MOUSEACTION 枚举（按钮/滚轮部分）。
@@ -139,10 +155,19 @@ bool Skin::Load(const std::wstring& iniPath)
     // 释放，避免 Meter 析构时解引用已释放的 Measure 指针）。
     m_Meters.clear();
     m_Measures.clear();
+    // 容器清空后旧的悬停指针立即失效，必须复位；否则后续 WM_MOUSEMOVE /
+    // WM_MOUSELEAVE 会解引用已释放的 Meter（典型触发路径：鼠标动作 Bang 为
+    // !Refresh，或 OnUpdateAction 内含 !Refresh）。
+    m_MouseOverMeter = nullptr;
+    m_TrackingMouseLeave = false;
 
     m_UpdateInterval = static_cast<uint32_t>(
         m_Parser->ReadInt(L"Rainmeter", L"Update", 1000));
     if (m_UpdateInterval == 0) m_UpdateInterval = 1000;
+
+    // D36-40 性能项 #2：重建后视觉状态全新，下一帧必须重绘；指纹基准一并复位。
+    m_Dirty = true;
+    m_LastFingerprint = 0;
 
     // 第一遍：Measure（Meter 绑定时需要其字符串初值，故先全部就位）。
     for (const auto& section : m_Parser->GetSections()) {
@@ -189,11 +214,17 @@ void Skin::Render(ID2D1RenderTarget* rt)
 void Skin::DoBang(const std::wstring& bang)
 {
     if (bang.empty()) return;
+    // D36-40 性能项 #2：Bang 可能改变无法纳入视觉指纹的状态（如颜色/字体等
+    // Meter 选项），故先标记强制重绘，避免脏检查吞掉这类变化。若该 Bang 自身
+    // 已触发一次重绘（如 !Redraw），这次重绘会把标记清掉，不会多渲染一帧。
+    m_Dirty = true;
     CRainmeter::GetInstance().ExecuteCommand(bang, this);
 }
 
 void Skin::Redraw()
 {
+    // !Redraw 语义是「立即重绘一帧」，必须绕过脏检查。
+    m_Dirty = true;
     RenderFrame();
 }
 
@@ -205,6 +236,7 @@ void Skin::Hide()
 void Skin::Show()
 {
     if (m_Window) ::ShowWindow(m_Window, SW_SHOWNA);
+    m_Dirty = true;   // 重新显示后内容可能已被系统丢弃，强制重绘
 }
 
 void Skin::Toggle()
@@ -283,14 +315,78 @@ bool Skin::CreateWindowAndTarget(int nCmdShow)
     return true;
 }
 
+uint64_t Skin::ComputeVisualFingerprint()
+{
+    // FNV-1a 64：把「会影响画面」的状态压成一个 64 位指纹。
+    // 覆盖粒度刻意取保守侧——宁可多渲染一帧，也不漏渲染：
+    //   - Measure：GetValue() 的位模式 + GetString() 文本（Meter 的绘制都源于此）；
+    //   - Meter：位置/尺寸/可见性（Bang 或选项变更会改变这些）。
+    // 未覆盖的状态（颜色、字体等）由 DoBang/Redraw/Load 的强制置脏兜底。
+    constexpr uint64_t kFnvOffsetBasis = 14695981039346656037ull;
+    constexpr uint64_t kFnvPrime = 1099511628211ull;
+
+    uint64_t hash = kFnvOffsetBasis;
+    const auto mix = [&hash](uint64_t v) { hash ^= v; hash *= kFnvPrime; };
+
+    for (auto& m : m_Measures)
+    {
+        const double value = m->GetValue();
+        uint64_t bits = 0;
+        static_assert(sizeof(bits) == sizeof(value), "fingerprint expects 64-bit double");
+        std::memcpy(&bits, &value, sizeof(bits));
+        mix(bits);
+
+        for (const wchar_t* s = m->GetString(); s && *s; ++s)
+        {
+            mix(static_cast<uint64_t>(static_cast<uint16_t>(*s)));
+        }
+    }
+
+    for (auto& t : m_Meters)
+    {
+        mix(static_cast<uint64_t>(static_cast<uint32_t>(t->GetX())));
+        mix(static_cast<uint64_t>(static_cast<uint32_t>(t->GetY())));
+        mix(static_cast<uint64_t>(static_cast<uint32_t>(t->GetWidth())));
+        mix(static_cast<uint64_t>(static_cast<uint32_t>(t->GetHeight())));
+        mix(t->GetHidden() ? 1ull : 0ull);
+    }
+
+    return hash;
+}
+
 void Skin::RenderFrame()
 {
     if (!m_RT) return;
+    // 动作 Bang（!Redraw）会在同一次调用栈内再次进入 RenderFrame：既造成
+    // BeginDraw/EndDraw 嵌套（D2D 会返回 D2DERR_WRONG_STATE），又让 Update 链
+    // 无限递归。守卫在此截断，详见 D10 审查 #3。
+    if (m_InRenderFrame) return;
+    m_InRenderFrame = true;
+
+    // Measure/Meter 采样照常推进（脏检查只省绘制，不省数据更新）。
     Update();
+
+    ++m_Frames;
+
+    // D36-40 性能项 #2：视觉状态未变化时跳过 Clear+Render。
+    const uint64_t fingerprint = ComputeVisualFingerprint();
+    if (!m_Dirty && fingerprint == m_LastFingerprint)
+    {
+        ++m_SkippedRenders;
+        m_InRenderFrame = false;
+        return;
+    }
+
+    m_LastFingerprint = fingerprint;
+    m_Dirty = false;
+    ++m_RenderPasses;
+
     m_RT->BeginDraw();
     m_RT->Clear(kBackgroundColor);
     Render(m_RT);
-    if (SUCCEEDED(m_RT->EndDraw())) ++m_Frames;
+    m_RT->EndDraw();
+
+    m_InRenderFrame = false;
 }
 
 Meter* Skin::FindMeterAtPoint(int x, int y) const
@@ -328,11 +424,18 @@ void Skin::HandleMouseMessage(UINT msg, WPARAM wParam, LPARAM lParam)
             std::wstring cmd;
             if (m_MouseOverMeter &&
                 m_MouseOverMeter->GetMouse().GetActionCommand(MOUSE_LEAVE, cmd)) {
+                // Bang 可能触发 !Refresh → Load() 清空 m_Meters，使 meter 与
+                // m_MouseOverMeter 同时悬垂。先断开悬停指针，Bang 之后再按坐标
+                // 重新做一次命中测试。
+                m_MouseOverMeter = nullptr;
                 DoBang(cmd);
+                meter = FindMeterAtPoint(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
             }
             m_MouseOverMeter = meter;
             if (meter && meter->GetMouse().GetActionCommand(MOUSE_OVER, cmd)) {
                 DoBang(cmd);
+                // 同上：MOUSE_OVER 的 Bang 也可能 Reload，重新解析以保持有效。
+                m_MouseOverMeter = FindMeterAtPoint(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
             }
         }
         return;
@@ -341,11 +444,14 @@ void Skin::HandleMouseMessage(UINT msg, WPARAM wParam, LPARAM lParam)
     if (msg == WM_MOUSELEAVE) {
         m_TrackingMouseLeave = false;
         if (m_MouseOverMeter) {
+            Meter* hovered = m_MouseOverMeter;
+            // 先取动作命令并断开悬停指针，再执行 Bang：Bang 可能 Reload 并释放
+            // hovered 指向的 Meter。
+            m_MouseOverMeter = nullptr;
             std::wstring cmd;
-            if (m_MouseOverMeter->GetMouse().GetActionCommand(MOUSE_LEAVE, cmd)) {
+            if (hovered->GetMouse().GetActionCommand(MOUSE_LEAVE, cmd)) {
                 DoBang(cmd);
             }
-            m_MouseOverMeter = nullptr;
         }
         return;
     }

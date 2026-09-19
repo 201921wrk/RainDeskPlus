@@ -28,6 +28,7 @@ MeterString::~MeterString()
     if (m_Brush)     { m_Brush->Release();     m_Brush = nullptr; }
     if (m_BrushRT)   { m_BrushRT->Release();   m_BrushRT = nullptr; }
     if (m_TextLayout){ m_TextLayout->Release(); m_TextLayout = nullptr; }
+    if (m_TextFormat){ m_TextFormat->Release(); m_TextFormat = nullptr; }
 }
 
 void MeterString::Initialize(ConfigParser& parser, Measure* measure)
@@ -38,6 +39,9 @@ void MeterString::Initialize(ConfigParser& parser, Measure* measure)
     m_FontFamily = parser.ReadString(m_Name, L"FontFace", m_FontFamily);
     m_FontSize   = static_cast<float>(parser.ReadFloat(m_Name, L"FontSize", m_FontSize));
     m_Color      = parser.ReadColor(m_Name, L"FontColor", D2D1_COLOR_F{1,1,1,1});
+
+    // 重新初始化可能改变字体参数，缓存的 TextFormat 必须失效后重建。
+    if (m_TextFormat) { m_TextFormat->Release(); m_TextFormat = nullptr; }
 
     const std::wstring align = parser.ReadString(m_Name, L"StringAlign", L"Left");
     if (_wcsicmp(align.c_str(), L"Center") == 0)      m_AlignH = DWRITE_TEXT_ALIGNMENT_CENTER;
@@ -84,6 +88,14 @@ void MeterString::SetText(const std::wstring& text)
     CreateLayout();
 }
 
+void MeterString::SetText(std::wstring&& text)
+{
+    if (m_Text == text) return;
+    // 直接接管临时量缓冲区，避免整串深拷贝（详见 D10 审查 #16）。
+    m_Text = std::move(text);
+    CreateLayout();
+}
+
 void MeterString::CreateLayout()
 {
     if (m_TextLayout) { m_TextLayout->Release(); m_TextLayout = nullptr; }
@@ -93,20 +105,22 @@ void MeterString::CreateLayout()
     IDWriteFactory* wf = Canvas::GetWriteFactory();
     if (!wf || m_Text.empty()) return;
 
-    // TextFormat 仅为构建 TextLayout 所需，layout 持有其引用，此处随即释放。
-    IDWriteTextFormat* fmt = nullptr;
-    HRESULT hr = wf->CreateTextFormat(m_FontFamily.c_str(), nullptr,
-                                      DWRITE_FONT_WEIGHT_NORMAL,
-                                      DWRITE_FONT_STYLE_NORMAL,
-                                      DWRITE_FONT_STRETCH_NORMAL,
-                                      m_FontSize, L"", &fmt);
-    if (FAILED(hr) || !fmt) return;
+    // TextFormat 仅随 FontFace/FontSize 变化，跨帧复用即可；
+    // 每帧 CreateTextFormat + Release 纯属浪费（详见 D10 审查 #17）。
+    if (!m_TextFormat)
+    {
+        const HRESULT hrFmt = wf->CreateTextFormat(m_FontFamily.c_str(), nullptr,
+                                                   DWRITE_FONT_WEIGHT_NORMAL,
+                                                   DWRITE_FONT_STYLE_NORMAL,
+                                                   DWRITE_FONT_STRETCH_NORMAL,
+                                                   m_FontSize, L"", &m_TextFormat);
+        if (FAILED(hrFmt) || !m_TextFormat) return;
+    }
 
     // 大画布建 layout 拿文本 metrics（AutoSize 语义），再收口到实际尺寸。
     IDWriteTextLayout* layout = nullptr;
-    hr = wf->CreateTextLayout(m_Text.c_str(), static_cast<UINT32>(m_Text.size()),
-                              fmt, 10000.0f, 10000.0f, &layout);
-    fmt->Release();
+    HRESULT hr = wf->CreateTextLayout(m_Text.c_str(), static_cast<UINT32>(m_Text.size()),
+                              m_TextFormat, 10000.0f, 10000.0f, &layout);
     if (FAILED(hr) || !layout) return;
 
     DWRITE_TEXT_METRICS metrics = {};

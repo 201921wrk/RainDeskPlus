@@ -8,6 +8,7 @@
 #include "ConfigParser.h"
 
 #include <cstdio>
+#include <fstream>
 #include <string>
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -52,6 +53,16 @@ static std::wstring GetSkinsRootPath()
     return L"Skins";
 }
 
+// 测试可执行文件所在目录（夹具写此，不污染仓库内皮肤文件）
+static std::wstring GetExeDir()
+{
+    wchar_t path[MAX_PATH];
+    GetModuleFileNameW(nullptr, path, MAX_PATH);
+    std::wstring exePath(path);
+    size_t pos = exePath.find_last_of(L"\\/");
+    return (pos != std::wstring::npos) ? exePath.substr(0, pos + 1) : std::wstring();
+}
+
 int main()
 {
     printf("=== M5/M6 CRainmeter + CommandHandler Smoke Test ===\n\n");
@@ -76,9 +87,9 @@ int main()
     CHECK(skins.count(L"Example") == 1, "Skin key 'Example' exists");
     CHECK(skins.at(L"Example") == skin, "Skin pointer matches");
 
-    // 验证皮肤已加载 Measure/Meter
-    CHECK(skin->GetMeasures().size() == 1, "Skin has 1 measure");
-    CHECK(skin->GetMeters().size() == 1, "Skin has 1 meter");
+    // 验证皮肤已加载 Measure/Meter（D25：追加 8 个 Audio 频段 Measure + 8 个频谱 Bar → 21 / 28）
+    CHECK(skin->GetMeasures().size() == 21, "Skin has 21 measures");
+    CHECK(skin->GetMeters().size() == 28, "Skin has 28 meters");
     printf("\n");
 
     // ---- 3. Bang 命令解析与执行 ----
@@ -135,6 +146,53 @@ int main()
     rm.ExecuteCommand(L"!Redraw", skin);
     rm.ExecuteCommand(L"!Update", skin);
     printf("  [PASS] Hide/Show/Toggle/Redraw/Update executed without crash\n");
+
+    // !CommandMeasure（D24）：只验证分发链路不崩溃。
+    // 刻意避开真命令（Play/Next 会向 HWND_BROADCAST 发 WM_APPCOMMAND，操作开发机正在播放的音乐）：
+    //   ① 目标段不存在 → 静默忽略；② 命令未识别 → AppCommand 映射失败 → 静默忽略。
+    rm.ExecuteCommand(L"!CommandMeasure NoSuchMeasure Play", skin);
+    rm.ExecuteCommand(L"!CommandMeasure \"MeasureMedia\" \"Bogus\"", skin);
+    rm.ExecuteCommand(L"!CommandMeasure MeasureMedia", skin);  // 缺命令参数
+    rm.ExecuteCommand(L"!CommandMeasure", skin);               // 缺全部参数
+    printf("  [PASS] !CommandMeasure dispatch handled gracefully\n");
+    printf("\n");
+
+    // ---- 4.5 !WriteKeyValue（D31-35）：写入 INI 并落盘 ----
+    printf("4.5 Bang command (!WriteKeyValue)\n");
+    {
+        // 显式传绝对路径到构建产物目录，避免改写仓库内 Skins/example/skin.ini
+        const std::wstring wkvIni = GetExeDir() + L"smoke_bang_wkv.ini";
+        {
+            std::ofstream seed(wkvIni, std::ios::binary | std::ios::trunc);
+            seed << "; bang wkv fixture\r\n[Section]\r\nKey=old\r\n";
+        }
+
+        // 值中含空格 → 需引号包裹；路径含空格亦需引号
+        rm.ExecuteCommand(L"!WriteKeyValue Section Key \"hello world\" \"" + wkvIni + L"\"", skin);
+        ConfigParser disk;
+        CHECK(disk.LoadFileRaw(wkvIni), "!WriteKeyValue target file readable");
+        CHECK(disk.ReadString(L"Section", L"Key", L"") == L"hello world",
+              "!WriteKeyValue persists quoted value with spaces");
+        CHECK(disk.GetHeaderComment() == L"; bang wkv fixture",
+              "!WriteKeyValue preserves header comment");
+
+        // 段名带方括号应等价于裸名
+        rm.ExecuteCommand(L"!WriteKeyValue [Section] Key2 plain \"" + wkvIni + L"\"", skin);
+        ConfigParser disk2;
+        CHECK(disk2.LoadFileRaw(wkvIni) && disk2.ReadString(L"Section", L"Key2", L"") == L"plain",
+              "!WriteKeyValue accepts bracketed section name");
+
+        // 覆盖已存在键
+        rm.ExecuteCommand(L"!WriteKeyValue Section Key replaced \"" + wkvIni + L"\"", skin);
+        ConfigParser disk3;
+        CHECK(disk3.LoadFileRaw(wkvIni) && disk3.ReadString(L"Section", L"Key", L"") == L"replaced",
+              "!WriteKeyValue overwrites existing key");
+
+        // 参数不足 → 静默忽略，不崩溃
+        rm.ExecuteCommand(L"!WriteKeyValue OnlySection", skin);
+        rm.ExecuteCommand(L"!WriteKeyValue", skin);
+        printf("  [PASS] !WriteKeyValue arg validation handled gracefully\n");
+    }
     printf("\n");
 
     // ---- 5. 多个皮肤 + Bang 分发 ----

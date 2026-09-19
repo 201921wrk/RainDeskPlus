@@ -32,6 +32,8 @@ public:
 	}
 
 private:
-	LARGE_INTEGER m_Start;
-	LARGE_INTEGER m_Stop;
+	// 未调用 Start/Stop 就读 GetElapsed() 会读到未初始化内存；显式清零给出确定行为
+	// （详见 D10 审查 #19）。
+	LARGE_INTEGER m_Start = {};
+	LARGE_INTEGER m_Stop = {};
 };

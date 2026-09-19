@@ -90,17 +90,28 @@ void Platform::Initialize()
 	if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, L"Software\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_QUERY_VALUE, &hkey) == ERROR_SUCCESS)
 	{
 		WCHAR buffer[256] = { 0 };
-		DWORD size = _countof(buffer);
+		// RegQueryValueEx 的 lpcbData 以“字节”为单位，必须传缓冲区的字节容量；
+		// 传 _countof(buffer)（=256 字节）会让长度 >=256 字节的字符串读取失败并
+		// 被静默丢弃（详见 D10 审查 #5）。
+		DWORD size = sizeof(buffer);
 
 		// Prefer "DisplayVersion" over "ReleaseId"
-		if ((RegQueryValueEx(hkey, L"DisplayVersion", nullptr, nullptr, (LPBYTE)buffer, (LPDWORD)&size) == ERROR_SUCCESS) ||
-			(RegQueryValueEx(hkey, L"ReleaseId", nullptr, nullptr, (LPBYTE)buffer, (LPDWORD)&size) == ERROR_SUCCESS))
+		if (RegQueryValueEx(hkey, L"DisplayVersion", nullptr, nullptr, (LPBYTE)buffer, &size) == ERROR_SUCCESS)
 		{
 			m_DisplayVersion = buffer;
 		}
+		else
+		{
+			// 上面这次调用可能已把 size 改写为实际字节数，重试前必须复位。
+			size = sizeof(buffer);
+			if (RegQueryValueEx(hkey, L"ReleaseId", nullptr, nullptr, (LPBYTE)buffer, &size) == ERROR_SUCCESS)
+			{
+				m_DisplayVersion = buffer;
+			}
+		}
 
-		size = _countof(buffer);
-		if (RegQueryValueEx(hkey, L"ProductName", nullptr, nullptr, (LPBYTE)buffer, (LPDWORD)&size) == ERROR_SUCCESS)
+		size = sizeof(buffer);
+		if (RegQueryValueEx(hkey, L"ProductName", nullptr, nullptr, (LPBYTE)buffer, &size) == ERROR_SUCCESS)
 		{
 			m_ProductName = buffer;
 
@@ -120,7 +131,9 @@ void Platform::Initialize()
 		{
 			DWORD minor = 0;
 			size = sizeof(DWORD);
-			if (RegQueryValueEx(hkey, L"CurrentMinorVersionNumber", nullptr, nullptr, (LPBYTE)&minor, (LPDWORD)&size) == ERROR_SUCCESS && minor >= 0)
+			// minor 为 DWORD（无符号），原条件 `minor >= 0` 恒真，属无效判断
+			// （详见 D10 审查 #14）；此处仅按读取是否成功进入。
+			if (RegQueryValueEx(hkey, L"CurrentMinorVersionNumber", nullptr, nullptr, (LPBYTE)&minor, &size) == ERROR_SUCCESS)
 			{
 				m_RawVersion = std::to_wstring(major);
 				m_RawVersion += L'.';
@@ -138,8 +151,8 @@ void Platform::Initialize()
 			ubrStr += std::to_wstring(ubr);
 		}
 
-		size = _countof(buffer);
-		if (RegQueryValueEx(hkey, L"CSDVersion", nullptr, nullptr, (LPBYTE)buffer, (LPDWORD)&size) == ERROR_SUCCESS)
+		size = sizeof(buffer);
+		if (RegQueryValueEx(hkey, L"CSDVersion", nullptr, nullptr, (LPBYTE)buffer, &size) == ERROR_SUCCESS)
 		{
 			servicePack = buffer;
 		}

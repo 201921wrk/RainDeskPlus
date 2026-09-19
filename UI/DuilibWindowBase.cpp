@@ -3,9 +3,11 @@
  * UI 适配层（GPL v2）
  * Copyright (C) 2026 RainDeskPlus Project
  *
- * 占位编译单元：RAINDOCK_USE_DUILIB=OFF 时 DuilibWindowBase 为内联类，
- * 无需 .cpp；本文件仅为满足 CMake/VS 构建占位而存在。
+ * 空占位编译单元。
+ *
+ * 本文件**故意不包含任何头文件**（尤其不包含 DuilibWindowBase.h）：
+ * - RAINDOCK_USE_DUILIB=ON 时 DuilibWindowBase.h 会拉入 "UIlib.h"，
+ *   而 RainDeskPlusUI 未链接 Duilib、也未加 /UNOMINMAX /UWIN32_LEAN_AND_MEAN，
+ *   一旦在此包含必然编译失败（见 docs/DOCK_DESIGN.md §5.3 尾注、DD-4）。
+ * - 保留空 TU 是为了让 CMake 能推断 RainDeskPlusUI 的链接语言（CXX）。
  */
-#include "DuilibWindowBase.h"
-
-// 真实 Duilib 接入后，此处可放置适配层的非内联实现（如 XML 加载、事件路由）。

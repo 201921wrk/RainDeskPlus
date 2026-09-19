@@ -215,6 +215,24 @@ public:
     std::wstring GetDollarMouseVariable(const std::wstring& name,
                                         Meter* ctxMeter) const;
 
+    // ---------- 落盘（D31-35：统一 INI 持久化出口） ----------
+    // 把当前内存内容序列化落盘：UTF-8 无 BOM、行尾 CRLF、段按出现顺序、段内键按插入顺序。
+    // 首行注释由 SetHeaderComment 提供（非空时写在首行，且与首段之间空一行）。
+    bool SaveFile(const std::wstring& path) const;
+    // 读盘但**不做主题合并**：供「读→改→写」场景（如 !WriteKeyValue）使用。
+    // 若与 LoadFile 一样并入主题键，写回时会把主题内容展开进主文件，污染主题声明。
+    bool LoadFileRaw(const std::wstring& path);
+    // 文件头注释（整行文本，通常以 ';' 开头）。LoadFile/LoadFileRaw 会自动识别文件
+    // 头部（首个段之前）的连续注释块并记入，保证「读→改→写」不丢首行注释。
+    void SetHeaderComment(const std::wstring& comment);
+    const std::wstring& GetHeaderComment() const;
+
+    // ---------- 段/键删除（D31-35） ----------
+    // 删除键；该段因此变空时自动移除整段（避免落盘留下空段）。返回是否确有删除。
+    bool RemoveValue(const std::wstring& section, const std::wstring& key);
+    // 删除整段（连同其键序与变量视图）。返回是否确有删除。
+    bool RemoveSection(const std::wstring& section);
+
     // 变量存取：Measure 更新动态变量用。#name# 语法由 ReadString 自动替换。
     void SetVariable(const std::wstring& name, const std::wstring& value);
     // 任意段键值写入（!SetOption 用）。段不存在则新建；Variables 段同步到变量表。
@@ -229,10 +247,23 @@ public:
     bool ReplaceVariables(std::wstring& value) const;
 
 private:
+    // 主题合并（D26-30）：LoadFile 解析完主文件后，若主文件声明了
+    // [Theme] Name=<名>，则把同目录 Themes\<名>.ini 作为「低优先级默认值」并入。
+    // 语义：主文件已显式写出的段/键优先，主题文件只补缺口。
+    // 主题文件缺失时降级为告警，不阻断加载。
+    void ApplyThemeDefaults(const std::wstring& path);
+
+    // 记录段内键的插入顺序（SaveFile 按此顺序输出，保证生成文件格式与既有手写口径一致）。
+    void RegisterKeyOrder(const std::wstring& section, const std::wstring& key);
+
     // section -> (key -> value)
     std::map<std::wstring, std::map<std::wstring, std::wstring>> m_Sections;
     // 按 Ini 出现顺序的段名列表（Rainmeter 默认遍历顺序）
     std::vector<std::wstring> m_SectionOrder;
+    // 段 -> 键出现顺序（落盘用；与 m_Sections 同生命周期）
+    std::map<std::wstring, std::vector<std::wstring>> m_KeyOrder;
+    // 文件头部（首个段之前）的连续注释行，落盘时原样写回首部。
+    std::vector<std::wstring> m_HeaderComments;
     // [Variables] 段 + SetVariable 合并视图，供变量展开。
     std::map<std::wstring, std::wstring> m_Variables;
 

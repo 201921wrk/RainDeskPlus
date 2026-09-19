@@ -45,14 +45,40 @@ $cmake = "E:\visual_C\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cma
 
 ## 4. 引入 Duilib
 
+Duilib 源码已 vendor 到 `third_party/duilib`，选用 [qdtroy/DuiLib_Ultimate](https://github.com/qdtroy/DuiLib_Ultimate)（命名空间 `DuiLib`）。
+
 ```powershell
-# 1) 将 Duilib 源码 vendor 到 third_party/duilib（目录需含 CMakeLists.txt）
-git clone <duilib-mirror> third_party/duilib
-# 2) 启用 Duilib 预设构建
+# 启用 Duilib 预设构建（RAINDOCK_USE_DUILIB=ON）
 cmake --preset vs2026-x64-dock-ui
+cmake --build --preset vs2026-dock-ui-debug
+# 跑 Hello World 验证
+.\build\vs2026-dock-ui\Debug\RainDeskPlusDuilibTest.exe
 ```
 
-若所选 Duilib 不带 CMakeLists，需自行为其写一份 `third_party/duilib/CMakeLists.txt`（STATIC 库），或改用其原有 VS 工程并手动引用。骨架阶段先以 `RAINDOCK_USE_DUILIB=OFF` 编译 Dock 逻辑占位类。
+### 4.1 为什么自建 target 而不用上游 `DuiLib/CMakeLists.txt`
+
+上游那份构建的是 **SHARED + `UILIB_EXPORTS`**，且用 `aux_source_directory` 把含 `DllMain` 的 `UILib.cpp` 一并收进库；另有 `CMAKE_GENERATOR_TOOLSET v100`、`CMAKE_SYSTEM_VERSION 5.01`、`add_subdirectory(Demos)` 等本机不成立的设定。因此在根 `CMakeLists.txt` 顶部（`if(RAINDOCK_USE_DUILIB)` 块）自建 **STATIC** `Duilib` target：
+
+- 源清单 = `Control/*.cpp` + `Core/*.cpp` + `Layout/*.cpp` + `Utils/*.cpp` + `StdAfx.cpp`（根目录 `UILib.cpp` 不在 GLOB 内，天然排除）。
+- `UIActiveX.cpp` / `UIFlash.cpp` / `UIWebBrowser.cpp` **不能裁**：`Core/ControlFactory.cpp` 有对应 `INNER_REGISTER_DUICONTROL` 注册宏，裁掉即缺符号。
+- `Control/UIGifAnimEx.cpp` 整体在 `#ifdef USE_XIMAGE_EFFECT` 内，不定义该宏时为空编译单元，可安全保留。
+- include 目录为 `${SOURCE_DIR}/third_party/duilib/DuiLib`（公开），头文件按 `"Utils/xxx.h"` 形式包含。
+
+### 4.2 必须处理的 5 个坑（均已实证）
+
+| # | 现象 | 原因 | 处理 |
+|---|------|------|------|
+| 1 | `error C2672: "std::max": 未找到匹配的重载函数`（`UIList/UIRender/UIManager/UICombo/UIVerticalLayout`…） | 本工程目录级 `add_compile_definitions` 定义了 `NOMINMAX`，且它在**生成阶段**对目录内所有 target 生效（与 target 创建顺序无关），于是 `windows.h` 不再定义 `min/max` 宏，`StdAfx.h` 的 `#define MAX max` 解析到 `std::max`，`LONG` 与 `int` 混合实参推导失败 | 在 `Duilib` target 上加 `target_compile_options(Duilib PRIVATE /UNOMINMAX)` |
+| 2 | `error C2065: "WSADATA"/"in_addr" 未声明的标识符`（`Control/UIIPAddress.cpp`） | 同上的泄漏 `WIN32_LEAN_AND_MEAN` 使 `windows.h` 不再引入 `winsock.h` | 同上，追加 `/UWIN32_LEAN_AND_MEAN` |
+| 3 | 源码乱码 / 解析错误 | 上游多为 **GBK 无 BOM** 源文件 | **不要**给该 target 加 `/utf-8`；本机系统 ACP=936，cl.exe 默认即按 GBK 解码 |
+| 4 | `error C5033: "register" 不再是存储类说明符` | `Core/UIMarkup.cpp`、`Utils/unzip.cpp` 使用 `register`，C++17 起移除 | `set_target_properties(Duilib PROPERTIES CXX_STANDARD 14)` |
+| 5 | 消费者侧 `__declspec(dllimport)` 链接失败 | `UIlib.h` 据 `UILIB_STATIC` 决定 `UILIB_API` 展开 | `target_compile_definitions(Duilib PUBLIC UILIB_STATIC ...)` |
+
+另：`Utils/TrayIcon.cpp` 用 `Shell_NotifyIcon` 但自身无 `#pragma comment(lib,"shell32.lib")`，`Control/UIIPAddressEx.cpp` 需要 `ws2_32`，故在 `target_link_libraries` 显式补 `shell32 ws2_32`。DPI 相关 API（`GetDpiForMonitor` / `SetProcessDpiAwareness`）由 `Utils/DPI.cpp` 动态 `GetProcAddress`，**无 shcore 链接期依赖**。
+
+### 4.3 与 Dock 模块的关系
+
+D5 只验证 Duilib 环境本身，`RainDeskPlusDock` 仍**不**依赖 Duilib。把 `DockWindow` 真正挂到 `WindowImplBase` 属于 D13-14：需同时（1）让 `RainDeskPlusDock` 链接 `Duilib` 并定义 `RAINDOCK_USE_DUILIB=1`；（2）把 `UI/DuilibWindowBase.h` 真实分支改为 `#include "UIlib.h"` + `DuiLib::` 限定；（3）让 `DockWindow` 实现 `GetSkinFile()` / `GetWindowClassName()` 并改 `Notify` / `OnMouseMove` 签名。
 
 ## 5. 网络与 TLS 故障排除
 

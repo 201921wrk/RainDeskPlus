@@ -17,6 +17,35 @@
 
 namespace raindock {
 
+namespace {
+
+// 从 exe 目录开始，逐级向上（含自身，最多 5 级）查找名为 "Skins" 的目录，
+// 返回其绝对路径；找不到返回空串。用于 Initialize 自动定位皮肤根目录。
+std::wstring AutoDetectSkinsRoot()
+{
+    wchar_t exePath[MAX_PATH] = {};
+    if (!::GetModuleFileNameW(nullptr, exePath, MAX_PATH)) return {};
+
+    std::wstring dir(exePath);
+    size_t slash = dir.find_last_of(L"\\/");
+    if (slash == std::wstring::npos) return {};
+    dir.resize(slash);   // 去掉文件名，得到 exe 目录
+
+    for (int level = 0; level <= 5; ++level) {
+        const std::wstring candidate = dir + L"\\Skins";
+        const DWORD attr = ::GetFileAttributesW(candidate.c_str());
+        if (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY)) {
+            return candidate;
+        }
+        slash = dir.find_last_of(L"\\/");
+        if (slash == std::wstring::npos) break;
+        dir.resize(slash);
+    }
+    return {};
+}
+
+}  // namespace
+
 // ===========================================================================
 // SkinRegistry：扫描 Skins 根目录，登记 config -> iniPath
 // ===========================================================================
@@ -85,15 +114,20 @@ CRainmeter& CRainmeter::GetInstance()
 
 bool CRainmeter::Initialize(HINSTANCE hInstance)
 {
-    // TODO(Phase1): 提取 Rainmeter::Initialize 实现：
-    //   - 注册窗口类、创建隐藏消息窗口
-    //   - 初始化 SkinRegistry（扫描 Skins/ 目录）
-    //   - 创建 CommandHandler
-    //   - 读取全局配置 Rainmeter.ini
-    // 当前：仅占位。
+    // M5：初始化核心组件，并自动定位/扫描 Skins 根目录。
+    //   - 注册窗口类、隐藏消息窗口、Rainmeter.ini 读取等留待后续阶段。
     m_hInstance = hInstance;
     m_CommandHandler = std::make_unique<CommandHandler>();
     m_SkinRegistry = std::make_unique<SkinRegistry>();
+
+    // 未显式指定 Skins 根目录时，从 exe 目录向上自动探测。
+    if (m_SkinRootPath.empty()) {
+        m_SkinRootPath = AutoDetectSkinsRoot();
+    }
+    if (!m_SkinRootPath.empty()) {
+        m_SkinRegistry->Refresh(m_SkinRootPath);
+    }
+
     m_Initialized = true;
     return true;
 }
@@ -111,10 +145,20 @@ void CRainmeter::Finalize()
 
 Skin* CRainmeter::ActivateSkin(const std::wstring& config, const std::wstring& iniPath)
 {
-    // TODO(Phase1): 创建 Skin、加载 INI、创建窗口。
+    // 同名 config 已激活：先停用旧皮肤，避免重复激活导致句柄/窗口泄漏。
+    auto existing = m_Skins.find(config);
+    if (existing != m_Skins.end()) {
+        delete existing->second;
+        m_Skins.erase(existing);
+    }
+
     auto* skin = new Skin();
     if (!skin->Load(iniPath)) { delete skin; return nullptr; }
     m_Skins[config] = skin;
+
+    // M5：加载成功即显示挂件窗口。窗口/渲染目标创建失败时静默降级，
+    // 皮肤仍已登记，Bang 命令（!Hide/!Show/!Toggle 等）按有无窗口做 no-op。
+    skin->Show(m_hInstance, SW_SHOWNOACTIVATE);
     return skin;
 }
 
@@ -155,16 +199,14 @@ void CRainmeter::ExecuteCommand(const std::wstring& command, Skin* skin)
 // ===========================================================================
 // Batch-2 upstream adapter: ExecuteActionCommand overloads
 // ===========================================================================
-// Global ::Section context — used by Section::DoUpdateAction().  At this
-// stage local raindock::Skin is not derived from nor convertible to global
-// ::Skin (Section::GetSkin return type).  We therefore pass nullptr skin
-// context to ExecuteCommand() — sufficient for Batch-2 compile assertion;
-// runtime context-sensitivity (e.g. bang targets a given skin/window) will
-// be restored when Measure/Meter derive from ::Section in Batch-3/4.
-void CRainmeter::ExecuteActionCommand(const WCHAR* command, ::Section* /*ctx*/)
+// Global ::Section context — used by Section::DoUpdateAction().  Section
+// holds a raindock::Skin* (aliased to global Skin via `using` in Section.h),
+// so we can recover the owning skin directly for context-sensitive dispatch.
+void CRainmeter::ExecuteActionCommand(const WCHAR* command, ::Section* ctx)
 {
     if (!command || !*command) return;
-    ExecuteCommand(std::wstring(command), nullptr);
+    Skin* skin = ctx ? ctx->GetSkin() : nullptr;
+    ExecuteCommand(std::wstring(command), skin);
 }
 
 // Local raindock::Measure context — used by IfActions::DoIfActions().  Here

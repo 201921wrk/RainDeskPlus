@@ -108,6 +108,11 @@ double Measure::GetValue()
 const wchar_t* Measure::CheckSubstitute(const wchar_t* src)
 {
     if (!src) src = L"";
+
+    // 无 Substitute 配置时无需改写：直接返回源串，省掉每帧一次整串拷贝
+    // （详见 D10 审查 #20）。调用方传入的源串在本次使用期内均有效。
+    if (m_Substitute.empty()) return src;
+
     m_Substituted = src;
     for (const auto& kv : m_Substitute) {
         if (kv.first.empty()) continue;
@@ -139,6 +144,12 @@ const wchar_t* Measure::GetString()
         m_StringValue = oss.str();
     }
     return CheckSubstitute(m_StringValue.c_str());
+}
+
+void Measure::Command(const std::wstring& /*command*/)
+{
+    // 默认 no-op（对齐上游 Measure 基类语义）：支持控制能力的子类自行 override。
+    // 无命令可执行的 Measure 因此对 !CommandMeasure 静默无副作用。
 }
 
 void Measure::Finalize()

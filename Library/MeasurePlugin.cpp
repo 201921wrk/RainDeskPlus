@@ -61,9 +61,11 @@ void MeasurePlugin::Initialize(ConfigParser& parser, const std::wstring& iniPath
     if (m_FnInitialize) m_FnInitialize(&m_Data);
 }
 
-void MeasurePlugin::Reload(ConfigParser& /*parser*/, const std::wstring& /*iniPath*/, double* /*maxValue*/)
+void MeasurePlugin::Reload(ConfigParser& /*parser*/, const std::wstring& /*iniPath*/, double* maxValue)
 {
-    if (m_FnReload) m_FnReload(m_Data, nullptr, nullptr);
+    // maxValue 是插件的出参（插件用它报告取值范围），必须原样透传；
+    // 恒传 nullptr 会让依赖该出参的插件写入空指针（详见 D10 审查 #22）。
+    if (m_FnReload) m_FnReload(m_Data, nullptr, maxValue);
 }
 
 void MeasurePlugin::UpdateValue()

@@ -105,16 +105,17 @@ void MeasureTime::UpdateValue()
     } else {
         // 1) UTC 分解
         ::gmtime_s(&tmBuf, &base);
-        // 2) 本地时区偏差（固定部分，不含 DST）
-        long tzBiasMin = 0;
-        _get_timezone(&tzBiasMin);  // UTC 西向为正（CRT 惯例），秒数
-        tzBiasMin /= 60;            // → 分钟
-        // 用户在 TimeZone 中指定：正向加是往东，相当于减少「UTC 西向」偏差
-        tzBiasMin -= m_TimeZoneBiasMinutes;
-        // 3) 对分解结构手工加 tzBiasMin（负是东加正是西减），并 normalize
+        // 2) 本地时区固定偏差（不含 DST）
+        long tzBiasMinutes = 0;
+        _get_timezone(&tzBiasMinutes);  // _get_timezone 返回“UTC 西向为正”的秒数
+        tzBiasMinutes /= 60;            // → 分钟
+        // 注意：base 已在上方叠加过用户指定的 TimeZone(m_TimeZoneBiasMinutes)，
+        // 这里不得再减一次，否则用户偏移被重复施加（详见 D10 审查 #7）。此分支与
+        // 上方 localtime_s 分支保持一致：系统时区照常生效，用户 TimeZone 只叠加一次。
+        // 3) 对分解结构手工加 tzBiasMinutes（负是东加正是西减），并 normalize
         std::time_t epoch = ::_mkgmtime(&tmBuf);
         if (epoch != -1) {
-            epoch -= static_cast<std::time_t>(tzBiasMin) * 60;
+            epoch -= static_cast<std::time_t>(tzBiasMinutes) * 60;
             ::gmtime_s(&tmBuf, &epoch);
         }
     }
@@ -140,8 +141,13 @@ void MeasureTime::UpdateValue()
 
 const wchar_t* MeasureTime::GetString()
 {
-    // 惰性：若字符串还没填（一般 Update 之前调用），先采样一次
-    if (m_StringValue.empty()) UpdateValue();
+    // 惰性采样只补一次（例如 Update 之前就被 Meter 读取）。
+    // 旧实现在字符串为空时无条件 UpdateValue()，导致每帧取串都重新采样时间，
+    // UpdateDivider 形同虚设（详见 D10 审查 #18）；后续刷新交给 Update 周期。
+    if (!m_LazySampled) {
+        m_LazySampled = true;
+        if (m_StringValue.empty()) UpdateValue();
+    }
     return CheckSubstitute(m_StringValue.c_str());
 }
 

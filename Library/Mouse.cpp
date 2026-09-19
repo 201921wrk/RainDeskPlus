@@ -88,7 +88,12 @@ void Mouse::ReadOptions(ConfigParser& parser, std::wstring_view section, bool is
 	m_CursorState = parser.ReadBool(section, L"MouseActionCursor", defaultState);
 
 	const WCHAR* defaultMouseCursor = isSkinLevel ? L"HAND" : L"";
-	const WCHAR* mouseCursor = parser.ReadString(section, L"MouseActionCursorName", defaultMouseCursor).c_str();
+	// ConfigParser::ReadString 按值返回 std::wstring；直接对返回的临时对象调用
+	// c_str() 会立刻悬垂。这里用具名局部量持有字符串，保证 c_str() 的生命周期
+	// 覆盖后续所有比较分支。
+	std::wstring mouseCursorStr =
+		parser.ReadString(section, L"MouseActionCursorName", defaultMouseCursor);
+	const WCHAR* mouseCursor = mouseCursorStr.c_str();
 
 	auto inheritSkinDefault = [&]()
 	{
@@ -96,7 +101,9 @@ void Mouse::ReadOptions(ConfigParser& parser, std::wstring_view section, bool is
 		m_CursorType = m_Skin->GetMouse().GetCursorType();
 		if (m_CursorType == MOUSECURSOR_CUSTOM)
 		{
-			mouseCursor = m_Skin->GetParser().ReadString(L"Rainmeter", L"MouseActionCursorName", L"").c_str();
+			mouseCursorStr =
+				m_Skin->GetParser().ReadString(L"Rainmeter", L"MouseActionCursorName", L"");
+			mouseCursor = mouseCursorStr.c_str();
 		}
 	};
 
