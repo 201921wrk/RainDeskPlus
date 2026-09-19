@@ -91,7 +91,7 @@
 - [x] D41-42（2026-09-19）：文档（【文档工程师 Agent】）+ README + 发布
   - 交付：新增 `docs/USER_MANUAL.md`（9 章：安装运行 / 皮肤语法 / Measure 参考 / Meter 参考 / 主题系统 / Dock 栏配置 / Bang 命令参考 / 故障排查 / 许可证；全部键名、默认值与合法区间逐条对照源码核实，含 6 处初稿事实校正 —— `MeterString` 字号默认 12、`MeterBar`/`MeterLine` 颜色默认具体值、`Dock.ini` 各键越界行为、拖拽加项 5 条精确规则、`Dark.ini` 变量清单剔除不存在的 3 个 `Accent*`）；重写 `README.md`（删除「脚手架 + 骨架 / 不保证可编译 / C++17 / VS 2022 / 构建不可用」等过期表述，补齐 D1-D40 已交付能力、两线构建命令、Smoke 基线 115/0 与 117/0、目录结构与文档导航）；新增 `CHANGELOG.md`（Keep a Changelog 格式，按 Phase 0-5 归纳 D1-D40，含 v0.1.0 发布说明、修复项、已知限制）；新增 `scripts/package.ps1`（版本号从 `CMakeLists.txt` 的 `project(... VERSION)` 解析，收集 exe + `Skins/` + `LICENSE`/`README.md`/`CHANGELOG.md`/`docs/USER_MANUAL.md` 打为 `dist/RainDeskPlus-<版本>-win64.zip`，暂存目录与产物均在项目内、不落 C 盘）；`.gitignore` 补 `dist/`。
   - 验证：`.\scripts\package.ps1` 打包成功 → `dist\RainDeskPlus-0.1.0-win64.zip`（858,157 字节，17 个条目）；**发布包端到端验证**：解包到 `dist\_verify` 后以 `RAINDOCK_SMOKE_MS=1500` 实跑 `RainDeskPlus.exe`，进程退出码 0、`smoke_result.txt` 末行 `SMOKE SUMMARY PASS=117 FAIL=0`，与源码构建线 ON 线基线一致；文档事实核对全部基于实读源码（Bang 清单取自 `CommandHandler.cpp` 的 13 条 `RegisterBang`、鼠标动作键取自 `Mouse.cpp` 的 21 项静态表、默认值取自各 `Meter*.h` / `Measure*.cpp` 成员初始化）。日志归档于 `logs/build_20260919_084358.log`。
-  - 发布：commit 全部 D6-D40 变更 → 本地 tag `v0.1.0` → 推送 `main` 与 tag → 创建 GitHub Release 并附 zip。
+  - 发布：commit `9c94bd2`（`feat(release): D41-42 文档三件套 + 发布打包（v0.1.0）`，88 files changed / +10175 −445，提交前已完成暂存区敏感信息扫描，无异常）→ 附注 tag `v0.1.0` → 推送 `origin main`（`6717094..9c94bd2`）与 tag → GitHub Release `v0.1.0`（https://github.com/201921wrk/RainDeskPlus/releases/tag/v0.1.0 ）附 `RainDeskPlus-0.1.0-win64.zip`（858,157 字节）。
 
 ## 每日 AI 协作流程
 
